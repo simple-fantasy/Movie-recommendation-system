@@ -1,0 +1,130 @@
+{% extends "admin/base.html" %}
+
+{% block title %}榜单管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item active">榜单管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">榜单管理</h4>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createChartModal">
+        <i class="bi bi-plus-lg me-2"></i>创建榜单
+    </button>
+</div>
+
+<!-- 榜单列表 -->
+<div class="table-container">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>榜单名称</th>
+                <th>类型</th>
+                <th>电影数</th>
+                <th>排序</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for chart in charts %}
+            <tr {% if not chart.is_active %}class="table-secondary"{% endif %}>
+                <td>{{ chart.id }}</td>
+                <td>
+                    <div class="fw-semibold">{{ chart.title }}</div>
+                    <small class="text-muted">{{ chart.description[:50] }}{% if chart.description|length > 50 %}...{% endif %}</small>
+                </td>
+                <td>
+                    {% if chart.chart_type == 'hot' %}
+                        <span class="badge bg-danger">热门</span>
+                    {% elif chart.chart_type == 'top_rated' %}
+                        <span class="badge bg-success">高分</span>
+                    {% elif chart.chart_type == 'editor_pick' %}
+                        <span class="badge bg-primary">编辑精选</span>
+                    {% elif chart.chart_type == 'genre' %}
+                        <span class="badge bg-info">类型</span>
+                    {% else %}
+                        <span class="badge bg-secondary">年度</span>
+                    {% endif %}
+                    {% if chart.genre %}
+                        <small class="text-muted d-block">{{ chart.genre }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ chart.items|length }}</td>
+                <td>{{ chart.sort_order }}</td>
+                <td>
+                    {% if chart.is_active %}
+                        <span class="badge bg-success">启用</span>
+                    {% else %}
+                        <span class="badge bg-secondary">禁用</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form method="POST" action="{{ url_for('admin.toggle_chart', chart_id=chart.id) }}" style="display: inline;">
+                        <button type="submit" class="btn btn-sm {% if chart.is_active %}btn-outline-warning{% else %}btn-outline-success{% endif %}">
+                            {% if chart.is_active %}禁用{% else %}启用{% endif %}
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    {% if not charts %}
+    <div class="text-center py-5">
+        <i class="bi bi-list-ol display-4 text-muted"></i>
+        <p class="text-muted mt-3">暂无榜单，点击右上角创建</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 创建榜单模态框 -->
+<div class="modal fade" id="createChartModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建榜单</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('admin.create_chart') }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">榜单名称</label>
+                        <input type="text" class="form-control" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">榜单描述</label>
+                        <textarea class="form-control" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">榜单类型</label>
+                        <select class="form-select" name="chart_type">
+                            <option value="hot">热门榜单</option>
+                            <option value="top_rated">高分榜单</option>
+                            <option value="editor_pick">编辑精选</option>
+                            <option value="genre">类型榜单</option>
+                            <option value="year">年度榜单</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">类型/年份</label>
+                        <input type="text" class="form-control" name="genre" placeholder="如：科幻、2024">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">排序</label>
+                        <input type="number" class="form-control" name="sort_order" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

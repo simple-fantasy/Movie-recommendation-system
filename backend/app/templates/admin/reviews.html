@@ -1,0 +1,159 @@
+{% extends "admin/base.html" %}
+
+{% block title %}评论管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item active">评论管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">评论管理</h4>
+    <div>
+        <span class="text-muted">共 {{ pagination.total }} 条评论</span>
+    </div>
+</div>
+
+<!-- 筛选 -->
+<div class="table-container p-3 mb-4">
+    <form method="GET" class="row g-3">
+        <div class="col-md-4">
+            <select class="form-select js-review-status-filter" name="status">
+                <option value="">全部状态</option>
+                <option value="approved" {% if status == 'approved' %}selected{% endif %}>已通过</option>
+                <option value="pending" {% if status == 'pending' %}selected{% endif %}>待审核</option>
+                <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>已拒绝</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('admin.reviews_list') }}" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-x-lg me-2"></i>重置
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- 评论列表 -->
+<div class="table-container">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户信息</th>
+                <th>电影</th>
+                <th>评论内容</th>
+                <th>评分</th>
+                <th>点赞</th>
+                <th>状态</th>
+                <th>时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for review in pagination.items %}
+            <tr>
+                <td>{{ review.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-person-circle fs-5 me-2 text-secondary"></i>
+                        <span>{{ review.user.username }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        {% if review.movie.poster_url %}
+                            <img src="{{ review.movie.poster_url }}" alt="" class="me-2" style="width: 30px; height: 45px; object-fit: cover; border-radius: 3px;">
+                        {% endif %}
+                        <div>
+                            <div class="fw-semibold small">{{ review.movie.title }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ review.movie.year or '未知年份' }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div style="max-width: 300px; max-height: 60px; overflow: hidden; text-overflow: ellipsis;">
+                        {{ review.content }}
+                    </div>
+                </td>
+                <td>
+                    {% if review.rating %}
+                        <span class="badge bg-warning text-dark">{{ review.rating }}</span>
+                    {% else %}
+                        <span class="text-muted">-</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <i class="bi bi-heart-fill text-danger me-1"></i>{{ review.likes_count }}
+                </td>
+                <td>
+                    {% if review.status == 'approved' %}
+                        <span class="badge bg-success">已通过</span>
+                    {% elif review.status == 'pending' %}
+                        <span class="badge bg-warning">待审核</span>
+                    {% else %}
+                        <span class="badge bg-secondary">已拒绝</span>
+                    {% endif %}
+                </td>
+                <td>{{ review.created_at.strftime('%m-%d %H:%M') }}</td>
+                <td>
+                    <div class="btn-group">
+                        {% if review.status != 'approved' %}
+                            <form method="POST" action="{{ url_for('admin.approve_review', review_id=review.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="通过">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if review.status != 'rejected' %}
+                            <form method="POST" action="{{ url_for('admin.reject_review', review_id=review.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="拒绝">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('admin.admin_delete_review', review_id=review.id) }}" style="display: inline;" class="js-review-delete-confirm">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center p-3 border-top">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.reviews_list', page=pagination.prev_num, status=status) }}">上一页</a>
+                    </li>
+                {% endif %}
+                
+                {% for p in pagination.iter_pages() %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.reviews_list', page=p, status=status) }}">{{ p }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.reviews_list', page=pagination.next_num, status=status) }}">下一页</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+<script src="/static/js/page-admin-reviews.js" defer></script>
+{% endblock %}

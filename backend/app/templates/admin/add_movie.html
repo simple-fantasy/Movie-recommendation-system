@@ -1,0 +1,94 @@
+{% extends "admin/base.html" %}
+
+{% block title %}添加电影{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.movies_list') }}">电影管理</a></li>
+    <li class="breadcrumb-item active">添加电影</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">添加电影</h4>
+    <a href="{{ url_for('admin.movies_list') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>返回列表
+    </a>
+</div>
+
+<div class="table-container p-4">
+    <form method="POST">
+        <div class="row g-3">
+            <!-- 基本信息 -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">电影标题 <span class="text-danger">*</span></label>
+                <input type="text" class="form-control" name="title" required placeholder="请输入电影标题">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">年份</label>
+                <input type="number" class="form-control" name="year" placeholder="1995">
+            </div>
+            
+            <div class="col-md-3">
+                <label class="form-label fw-semibold">时长（分钟）</label>
+                <input type="number" class="form-control" name="runtime" placeholder="120">
+            </div>
+            
+            <!-- 导演和类型 -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">导演</label>
+                <input type="text" class="form-control" name="director" placeholder="导演姓名">
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">类型</label>
+                <input type="text" class="form-control" name="genres" placeholder="Action|Adventure|Sci-Fi">
+            </div>
+            
+            <!-- 演员 -->
+            <div class="col-12">
+                <label class="form-label fw-semibold">演员</label>
+                <input type="text" class="form-control" name="actors" placeholder="演员A, 演员B, 演员C（用逗号分隔）">
+                <div class="form-text">多个演员用逗号分隔</div>
+            </div>
+            
+            <!-- 简介 -->
+            <div class="col-12">
+                <label class="form-label fw-semibold">剧情简介</label>
+                <textarea class="form-control" name="description" rows="4" placeholder="请输入电影剧情简介..."></textarea>
+            </div>
+            
+            <!-- 图片链接 -->
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">海报URL</label>
+                <input type="url" class="form-control" name="poster_url" placeholder="https://example.com/poster.jpg">
+            </div>
+            
+            <div class="col-md-6">
+                <label class="form-label fw-semibold">背景图URL</label>
+                <input type="url" class="form-control" name="backdrop_url" placeholder="https://example.com/backdrop.jpg">
+            </div>
+            
+            <div class="col-12">
+                <label class="form-label fw-semibold">预告片URL</label>
+                <input type="url" class="form-control" name="trailer_url" placeholder="https://youtube.com/watch?v=...">
+            </div>
+        </div>
+        
+        <hr class="my-4">
+        
+        <div class="d-flex justify-content-between">
+            <div>
+                <span class="text-muted"><i class="bi bi-info-circle me-2"></i>系统会自动尝试从TMDB获取电影信息</span>
+            </div>
+            <div>
+                <a href="{{ url_for('admin.movies_list') }}" class="btn btn-outline-secondary me-2">取消</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-plus-lg me-2"></i>添加电影
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}我的收藏 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .stats-card { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:12px; padding:1.25rem; }
+  .stats-card .stat-row { display:flex; justify-content:space-between; align-items:center; padding:.35rem 0; }
+  .stats-card .stat-value { font-weight:700; color:var(--cinema-accent); }
+  .list-item { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:10px; padding:1rem; margin-bottom:.75rem; transition:all .2s; display:flex; gap:1rem; align-items:center; }
+  .list-item:hover { border-color:var(--cinema-accent); transform:translateX(4px); }
+  .poster-thumb { width:50px; height:75px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+  .type-badge { font-size:11px; border-radius:999px; padding:3px 10px; display:inline-block; }
+  .type-favorite { background:rgba(229,160,13,.15); color:var(--cinema-accent); }
+  .type-watchlist { background:rgba(59,130,246,.15); color:#60a5fa; }
+  .type-seen { background:rgba(34,197,94,.15); color:#34d399; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-12 col-lg-3">
+      <div class="stats-card mb-3">
+        <div class="fw-bold mb-3" style="color:var(--cinema-accent);">收藏统计</div>
+        <div class="stat-row"><span class="text-secondary">收藏</span><span class="stat-value" id="stat-favorite">-</span></div>
+        <div class="stat-row"><span class="text-secondary">想看</span><span class="stat-value" id="stat-watchlist">-</span></div>
+        <div class="stat-row"><span class="text-secondary">已看</span><span class="stat-value" id="stat-seen">-</span></div>
+        <div class="border-top border-secondary pt-2 mt-2 stat-row"><span class="text-secondary">总计</span><span class="stat-value" id="stat-total">-</span></div>
+      </div>
+      <div class="stats-card">
+        <div class="fw-bold mb-3">筛选</div>
+        <div class="d-flex flex-wrap gap-2">
+          <button id="filter-all" class="btn btn-cinema btn-sm">全部</button>
+          <button id="filter-favorite" class="btn btn-cinema-outline btn-sm">收藏</button>
+          <button id="filter-watchlist" class="btn btn-cinema-outline btn-sm">想看</button>
+          <button id="filter-seen" class="btn btn-cinema-outline btn-sm">已看</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-9">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><h2 class="fw-bold">我的收藏</h2><p class="text-secondary small">管理你的电影收藏列表</p></div>
+        <button id="btnRefresh" class="btn btn-cinema-outline btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新</button>
+      </div>
+      <div id="collections-list">
+        <div class="text-center text-secondary py-5"><div style="font-size:3rem;">📭</div><p>暂无收藏记录</p><p class="small">登录后可以收藏喜欢的电影</p><a href="/login" class="btn btn-cinema btn-sm mt-2">去登录</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-collections.js" defer></script>
+{% endblock %}

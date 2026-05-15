@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CineMatch - 智能电影推荐系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg-dark: #0a0e1a;
+        --bg-gradient-start: #0f172a;
+        --bg-gradient-end: #1e293b;
+        --accent-gold: #f59e0b;
+        --accent-gold-light: #fbbf24;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --card-bg: rgba(30, 41, 59, 0.6);
+        --border-color: rgba(148, 163, 184, 0.2);
+      }
+      
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        min-height: 100vh;
+        background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 50%, var(--bg-dark) 100%);
+        color: var(--text-primary);
+        position: relative;
+        overflow-x: hidden;
+      }
+      
+      /* 背景效果 */
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: 
+          radial-gradient(ellipse at 20% 50%, rgba(245, 158, 11, 0.08) 0%, transparent 50%),
+          radial-gradient(ellipse at 80% 20%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
+          url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 0;
+      }
+      
+      /* 英雄区 */
+      .hero {
+        position: relative;
+        z-index: 1;
+        padding: 5rem 1rem 2rem;
+        text-align: center;
+      }
+      
+      .hero-icon {
+        font-size: 5rem;
+        margin-bottom: 1.5rem;
+        animation: float 3s ease-in-out infinite;
+      }
+      
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-10px); }
+      }
+      
+      .hero-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 3.5rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, #f8fafc 0%, var(--accent-gold) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      
+      .hero-subtitle {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 2rem;
+        line-height: 1.6;
+      }
+      
+      .hero-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: rgba(245, 158, 11, 0.15);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: var(--accent-gold);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+      
+      /* 特性区（缩小放在下方） */
+      .features {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 1rem 3rem;
+        background: rgba(15, 23, 42, 0.3);
+        border-top: 1px solid var(--border-color);
+      }
+      
+      .features-title {
+        text-align: center;
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 1.5rem;
+        font-weight: 500;
+      }
+      
+      .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+      
+      .feature-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1.25rem;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        text-align: center;
+      }
+      
+      .feature-card:hover {
+        transform: translateY(-4px);
+        border-color: var(--accent-gold);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+      }
+      
+      .feature-icon {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+      }
+      
+      .feature-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        color: var(--text-primary);
+      }
+      
+      .feature-desc {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        line-height: 1.5;
+        margin-bottom: 0.75rem;
+        opacity: 0.8;
+      }
+      
+      .feature-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: var(--accent-gold);
+        text-decoration: none;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        font-size: 0.8rem;
+      }
+      
+      .feature-link:hover {
+        color: var(--accent-gold-light);
+        gap: 0.5rem;
+      }
+      
+      /* 主入口区（放在英雄区下方） */
+      .hero-cta {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 1rem 3rem;
+        text-align: center;
+      }
+      
+      .cta-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 1.5rem;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      
+      .btn-primary-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-gold-light) 100%);
+        color: #0a0e1a;
+        padding: 1.25rem 3rem;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1.25rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
+      }
+      
+      .btn-primary-custom:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(245, 158, 11, 0.5);
+        color: #0a0e1a;
+      }
+      
+      .btn-secondary-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+        padding: 1.25rem 3rem;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1.25rem;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        border: 2px solid var(--border-color);
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+      }
+      
+      .btn-secondary-custom:hover {
+        border-color: var(--accent-gold);
+        color: var(--accent-gold);
+        background: rgba(245, 158, 11, 0.15);
+        transform: translateY(-4px);
+      }
+      
+      /* 页脚 */
+      .footer {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 1rem;
+        text-align: center;
+        border-top: 1px solid var(--border-color);
+      }
+      
+      .footer-text {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+      }
+      
+      /* 技术标签 */
+      .tech-tags {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 2rem;
+      }
+      
+      .tech-tag {
+        background: rgba(30, 41, 59, 0.8);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+      }
+      
+      /* 响应式 */
+      @media (max-width: 768px) {
+        .hero-title {
+          font-size: 2.5rem;
+        }
+        
+        .hero-subtitle {
+          font-size: 1rem;
+        }
+        
+        .features-grid {
+          grid-template-columns: 1fr;
+        }
+        
+        .cta-buttons {
+          flex-direction: column;
+          align-items: center;
+        }
+        
+        .btn-primary-custom,
+        .btn-secondary-custom {
+          width: 100%;
+          max-width: 300px;
+          justify-content: center;
+        }
+      }
+      
+      /* 粒子效果容器 */
+      .particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 0;
+        overflow: hidden;
+      }
+      
+      .particle {
+        position: absolute;
+        width: 4px;
+        height: 4px;
+        background: var(--accent-gold);
+        border-radius: 50%;
+        opacity: 0.3;
+        animation: particle-float 20s infinite linear;
+      }
+      
+      @keyframes particle-float {
+        0% {
+          transform: translateY(100vh) translateX(0);
+          opacity: 0;
+        }
+        10% {
+          opacity: 0.3;
+        }
+        90% {
+          opacity: 0.3;
+        }
+        100% {
+          transform: translateY(-10vh) translateX(50px);
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- 粒子背景 -->
+    <div class="particles" id="particles"></div>
+    
+    <!-- 英雄区 -->
+    <section class="hero">
+      <div class="hero-icon">🎬</div>
+      <h1 class="hero-title">CineMatch</h1>
+      <p class="hero-subtitle">
+        基于协同过滤与深度学习的智能电影推荐系统<br/>
+        为你发现下一部喜爱的电影
+      </p>
+      <div class="hero-badge">
+        <span>⚡</span>
+        <span>ItemCF + NCF 混合推荐引擎</span>
+      </div>
+      
+      <!-- 技术标签 -->
+      <div class="tech-tags">
+        <span class="tech-tag">Python</span>
+        <span class="tech-tag">Flask</span>
+        <span class="tech-tag">PyTorch</span>
+        <span class="tech-tag">MovieLens</span>
+        <span class="tech-tag">ECharts</span>
+      </div>
+    </section>
+    
+    <!-- 主入口区（突出显示） -->
+    <section class="hero-cta">
+      <div class="cta-buttons">
+        <a href="/login" class="btn-primary-custom">
+          <span style="font-size: 1.5rem;">🚀</span>
+          <span>立即开始</span>
+        </a>
+        <a href="/app" class="btn-secondary-custom">
+          <span style="font-size: 1.5rem;">🔍</span>
+          <span>浏览电影</span>
+        </a>
+      </div>
+    </section>
+    
+    <!-- 特性区（放在下方，缩小显示） -->
+    <section class="features">
+      <div class="features-title">系统功能特性</div>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🔥</div>
+          <h3 class="feature-title">热门推荐</h3>
+          <p class="feature-desc">无需登录即可浏览高分热门电影</p>
+          <a href="/recommendations" class="feature-link">
+            浏览 →
+          </a>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3 class="feature-title">智能推荐</h3>
+          <p class="feature-desc">ItemCF / NCF / 混合三种策略</p>
+          <a href="/recommendations" class="feature-link">
+            获取 →
+          </a>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3 class="feature-title">数据看板</h3>
+          <p class="feature-desc">可视化数据分析与评估指标</p>
+          <a href="/dashboard" class="feature-link" target="_blank">
+            查看 →
+          </a>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">⭐</div>
+          <h3 class="feature-title">评分管理</h3>
+          <p class="feature-desc">搜索评分，构建个性化画像</p>
+          <a href="/app" class="feature-link">
+            评分 →
+          </a>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <h3 class="feature-title">用户画像</h3>
+          <p class="feature-desc">类型偏好雷达图分析</p>
+          <a href="/app" class="feature-link">
+            画像 →
+          </a>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">👍</div>
+          <h3 class="feature-title">反馈优化</h3>
+          <p class="feature-desc">反馈推荐质量持续优化</p>
+          <a href="/recommendations" class="feature-link">
+            反馈 →
+          </a>
+        </div>
+      </div>
+    </section>
+    
+    <!-- 页脚 -->
+    <footer class="footer">
+      <p class="footer-text">
+        CineMatch 电影推荐系统 · 基于 MovieLens 数据集
+      </p>
+    </footer>
+    
+    <script type="module" src="/static/js/page-portal.js"></script>
+  </body>
+</html>

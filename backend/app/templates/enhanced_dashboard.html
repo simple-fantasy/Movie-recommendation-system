@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}增强数据看板 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .stat-card-e { background:var(--cinema-surface); border-radius:16px; padding:1.5rem; border:1px solid var(--cinema-border); transition:all .3s ease; position:relative; overflow:hidden; }
+  .stat-card-e::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:linear-gradient(90deg,var(--cinema-accent),#f5b830); }
+  .stat-card-e:hover { transform:translateY(-4px); border-color:var(--cinema-accent); box-shadow:0 12px 24px rgba(0,0,0,.3); }
+  .stat-icon-e { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:1rem; background:rgba(229,160,13,.1); color:var(--cinema-accent); }
+  .stat-value-e { font-size:2rem; font-weight:700; color:var(--cinema-text); margin-bottom:.25rem; }
+  .stat-label-e { color:var(--cinema-text-secondary); font-size:.875rem; font-weight:500; margin-bottom:.5rem; }
+  .stat-trend-e { font-size:.75rem; font-weight:600; padding:.25rem .5rem; border-radius:6px; display:inline-block; }
+  .stat-trend-e.positive { background:rgba(34,197,94,.12); color:#22c55e; }
+  .stat-trend-e.negative { background:rgba(239,68,68,.12); color:#ef4444; }
+  .chart-box { background:var(--cinema-surface); border-radius:16px; padding:1.5rem; border:1px solid var(--cinema-border); }
+  .chart-title-e { font-size:1.125rem; font-weight:600; color:var(--cinema-text); margin-bottom:1rem; display:flex; align-items:center; justify-content:space-between; }
+  .chart-subtitle-e { font-size:.875rem; color:var(--cinema-text-secondary); font-weight:400; }
+  .segment-card-e { background:var(--cinema-surface); border-radius:12px; padding:1.25rem; border:1px solid var(--cinema-border); text-align:center; transition:all .3s ease; }
+  .segment-card-e:hover { transform:translateY(-2px); border-color:var(--cinema-accent); }
+  .segment-pct { font-size:1.5rem; font-weight:700; color:var(--cinema-accent); margin-bottom:.5rem; }
+  .heatmap-legend { display:flex; align-items:center; gap:.5rem; font-size:.75rem; color:var(--cinema-text-secondary); margin-top:1rem; }
+  .heatmap-gradient { width:100px; height:12px; background:linear-gradient(90deg,#1a1a1a,#2a2a2a,var(--cinema-accent)); border-radius:6px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div><h1 class="h3 mb-1">增强数据看板</h1><p class="text-secondary mb-0">实时监控系统运营数据和用户行为分析</p></div>
+        <div>
+          <button id="refresh-dashboard-btn" class="btn btn-cinema-outline btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新数据</button>
+          <button id="export-dashboard-btn" class="btn btn-cinema btn-sm ms-2"><i class="ph ph-download"></i> 导出报告</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row mb-4" id="stats-cards">
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-users"></i></div><div class="stat-value-e" id="total-users">-</div><div class="stat-label-e">总用户数</div><div class="stat-trend-e positive" id="users-growth">+0%</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-film-strip"></i></div><div class="stat-value-e" id="total-movies">-</div><div class="stat-label-e">电影总数</div><div class="stat-trend-e positive" id="movies-growth">+0%</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-star"></i></div><div class="stat-value-e" id="total-ratings">-</div><div class="stat-label-e">总评分数</div><div class="stat-trend-e positive" id="ratings-growth">+0%</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-activity"></i></div><div class="stat-value-e" id="active-users-today">-</div><div class="stat-label-e">今日活跃用户</div><div class="stat-trend-e positive" id="activity-trend">+0%</div></div></div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-user-plus"></i></div><div class="stat-value-e" id="users-this-week">-</div><div class="stat-label-e">本周新增用户</div><div class="stat-trend-e positive">新增用户</div></div></div>
+    <div class="col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-star"></i></div><div class="stat-value-e" id="ratings-today">-</div><div class="stat-label-e">今日评分数</div><div class="stat-trend-e positive">今日活跃</div></div></div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-lg-8 mb-3">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>用户活跃度热力图</span><span class="chart-subtitle-e">过去30天用户活跃时间分布</span></div>
+        <div id="activity-heatmap" style="height:400px;"></div>
+        <div class="heatmap-legend"><span>低活跃度</span><div class="heatmap-gradient"></div><span>高活跃度</span></div>
+      </div>
+    </div>
+    <div class="col-lg-4 mb-3">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>用户分群分析</span><span class="chart-subtitle-e">按活跃度分布</span></div>
+        <div id="user-segments-pie" style="height:300px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-lg-6 mb-3">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>热门电影类型</span><span class="chart-subtitle-e">按评分数排序</span></div>
+        <div id="popular-genres-bar" style="height:300px;"></div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-3">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>评分偏好分析</span><span class="chart-subtitle-e">用户评分习惯分布</span></div>
+        <div id="rating-preferences-pie" style="height:300px;"></div>
+      </div>
+    </div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>本月热门电影</span><span class="chart-subtitle-e">按本月评分数排序</span></div>
+        <div id="top-movies-list" class="row"><div class="d-flex justify-content-center align-items-center py-5"><div class="spinner-border text-accent" style="color:var(--cinema-accent)!important;" role="status"></div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="chart-box">
+        <div class="chart-title-e"><span>系统健康指标</span><span class="chart-subtitle-e">实时系统状态监控</span></div>
+        <div id="system-health" class="row"><div class="d-flex justify-content-center align-items-center py-5"><div class="spinner-border text-accent" style="color:var(--cinema-accent)!important;" role="status"></div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script type="module" src="/static/js/page-enhanced-dashboard.js"></script>
+{% endblock %}

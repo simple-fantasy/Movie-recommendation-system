@@ -1,0 +1,323 @@
+{% extends "admin/base.html" %}
+
+{% block title %}消息通知管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">仪表板</a></li>
+    <li class="breadcrumb-item active">消息通知管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-bell me-2"></i>消息通知管理</h4>
+    <div>
+        <button id="btn-show-send-notification-modal" type="button" class="btn btn-primary">
+            <i class="bi bi-send me-1"></i>发送通知
+        </button>
+        <button id="btn-show-template-modal" type="button" class="btn btn-success">
+            <i class="bi bi-file-text me-1"></i>模板管理
+        </button>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-bell"></i>
+            </div>
+            <div class="number" id="totalNotifications">-</div>
+            <div class="label">总通知数</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="number" id="readNotifications">-</div>
+            <div class="label">已读通知</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div class="number" id="unreadNotifications">-</div>
+            <div class="label">未读通知</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-calendar-event"></i>
+            </div>
+            <div class="number" id="todayNotifications">-</div>
+            <div class="label">今日发送</div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="filterForm" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">搜索通知</label>
+                <input type="text" class="form-control" id="searchInput" placeholder="输入通知内容...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">通知类型</label>
+                <select class="form-select" id="notificationType">
+                    <option value="">全部类型</option>
+                    <option value="system">系统通知</option>
+                    <option value="review">评论通知</option>
+                    <option value="recommend">推荐通知</option>
+                    <option value="achievement">成就通知</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">状态</label>
+                <select class="form-select" id="notificationStatus">
+                    <option value="">全部状态</option>
+                    <option value="read">已读</option>
+                    <option value="unread">未读</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 通知列表 -->
+<div class="table-container">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>通知内容</th>
+                <th>类型</th>
+                <th>目标用户</th>
+                <th>状态</th>
+                <th>发送时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="notificationsTableBody">
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 分页 -->
+<nav class="d-flex justify-content-center mt-4">
+    <ul class="pagination" id="pagination">
+        <!-- 分页将通过JavaScript动态生成 -->
+    </ul>
+</nav>
+
+<!-- 发送通知模态框 -->
+<div class="modal fade" id="sendNotificationModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">发送通知</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendNotificationForm">
+                    <div class="mb-3">
+                        <label class="form-label">通知类型</label>
+                        <select class="form-select" id="notificationTypeSelect" required>
+                            <option value="">选择通知类型</option>
+                            <option value="system">系统通知</option>
+                            <option value="review">评论通知</option>
+                            <option value="recommend">推荐通知</option>
+                            <option value="achievement">成就通知</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">发送范围</label>
+                        <select class="form-select" id="sendScope" required>
+                            <option value="all">所有用户</option>
+                            <option value="active">活跃用户</option>
+                            <option value="admin">管理员</option>
+                            <option value="specific">指定用户</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="specificUsersDiv" style="display: none;">
+                        <label class="form-label">指定用户</label>
+                        <input type="text" class="form-control" id="specificUsers" placeholder="输入用户名，多个用户用逗号分隔">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">通知标题</label>
+                        <input type="text" class="form-control" id="notificationTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">通知内容</label>
+                        <textarea class="form-control" id="notificationContent" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">相关链接（可选）</label>
+                        <input type="url" class="form-control" id="relatedLink" placeholder="https://...">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button id="btn-send-notification" type="button" class="btn btn-primary">
+                    <i class="bi bi-send me-1"></i>发送通知
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 模板管理模态框 -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">通知模板管理</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6>现有模板</h6>
+                    <button id="btn-show-add-template-modal" type="button" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus me-1"></i>添加模板
+                    </button>
+                </div>
+                <div class="table-container">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>模板名称</th>
+                                <th>类型</th>
+                                <th>标题</th>
+                                <th>内容</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="templatesTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-3">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加模板模态框 -->
+<div class="modal fade" id="addTemplateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加通知模板</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addTemplateForm">
+                    <div class="mb-3">
+                        <label class="form-label">模板名称</label>
+                        <input type="text" class="form-control" id="templateName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">通知类型</label>
+                        <select class="form-select" id="templateType" required>
+                            <option value="">选择通知类型</option>
+                            <option value="system">系统通知</option>
+                            <option value="review">评论通知</option>
+                            <option value="recommend">推荐通知</option>
+                            <option value="achievement">成就通知</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">模板标题</label>
+                        <input type="text" class="form-control" id="templateTitle" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">模板内容</label>
+                        <textarea class="form-control" id="templateContent" rows="4" required></textarea>
+                        <div class="form-text">
+                            可用变量：{username}, {movie_title}, {action}, {time}
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button id="btn-add-template" type="button" class="btn btn-primary">
+                    <i class="bi bi-plus me-1"></i>添加模板
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/page-admin-notification-management.js" defer></script>
+
+<style>
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.stat-card .icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card .number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .label {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.text-truncate {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+</style>
+{% endblock %}

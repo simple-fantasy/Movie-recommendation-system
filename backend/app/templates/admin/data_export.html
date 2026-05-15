@@ -1,0 +1,206 @@
+{% extends "admin/base.html" %}
+
+{% block title %}数据导出{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">仪表板</a></li>
+    <li class="breadcrumb-item active">数据导出</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-download me-2"></i>数据导出</h4>
+</div>
+
+<!-- 导出选项卡片 -->
+<div class="row g-4">
+    <!-- 用户数据导出 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5><i class="bi bi-users text-primary me-2"></i>用户数据导出</h5>
+                        <p class="text-muted small">导出所有用户的基本信息和统计数据</p>
+                    </div>
+                    <span class="badge bg-info">管理员</span>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="mb-3">
+                        <label class="form-label">导出格式</label>
+                        <select class="form-select" id="userDataFormat">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                    <button id="btnExportUserData" type="button" class="btn btn-primary w-100">
+                        <i class="bi bi-download me-1"></i>导出用户数据
+                    </button>
+                </div>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        包含：用户基本信息、统计数据、评分记录、收藏列表、评论内容
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 电影数据导出 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5><i class="bi bi-film text-success me-2"></i>电影数据导出</h5>
+                        <p class="text-muted small">导出所有电影的完整信息</p>
+                    </div>
+                    <span class="badge bg-success">管理员</span>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="mb-3">
+                        <label class="form-label">导出格式</label>
+                        <select class="form-select" id="movieDataFormat">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeMovieRatings">
+                            <label class="form-check-label" for="includeMovieRatings">
+                                包含评分统计
+                            </label>
+                        </div>
+                    </div>
+                    <button id="btnExportMovieData" type="button" class="btn btn-success w-100">
+                        <i class="bi bi-download me-1"></i>导出电影数据
+                    </button>
+                </div>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        包含：电影基本信息、海报链接、类型、导演、演员等元数据
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系统统计导出 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5><i class="bi bi-bar-chart text-warning me-2"></i>系统统计导出</h5>
+                        <p class="text-muted small">导出系统运行统计和分析数据</p>
+                    </div>
+                    <span class="badge bg-warning">管理员</span>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="mb-3">
+                        <label class="form-label">导出格式</label>
+                        <select class="form-select" id="statsFormat">
+                            <option value="json">JSON</option>
+                            <option value="csv">CSV</option>
+                        </select>
+                    </div>
+                    <button id="btnExportSystemStats" type="button" class="btn btn-warning w-100">
+                        <i class="bi bi-download me-1"></i>导出系统统计
+                    </button>
+                </div>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        包含：用户统计、电影统计、评分统计、评论统计、系统健康状态、行为分析
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 系统备份导出 -->
+    <div class="col-lg-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5><i class="bi bi-database text-danger me-2"></i>系统完整备份</h5>
+                        <p class="text-muted small">导出整个系统的完整数据备份</p>
+                    </div>
+                    <span class="badge bg-danger">超级管理员</span>
+                </div>
+                
+                <div class="mt-4">
+                    <div class="alert alert-warning mb-3">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        此操作将导出所有数据，文件可能较大，请耐心等待
+                    </div>
+                    <button id="btnExportSystemBackup" type="button" class="btn btn-danger w-100">
+                        <i class="bi bi-download me-1"></i>创建系统备份
+                    </button>
+                </div>
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle me-1"></i>
+                        包含：所有用户、电影、评分、评论、收藏等数据
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导出历史记录 -->
+<div class="mt-6">
+    <h5><i class="bi bi-history me-2"></i>最近导出记录</h5>
+    <div class="card mt-3">
+        <div class="card-body">
+            <div class="table-container">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>导出类型</th>
+                            <th>格式</th>
+                            <th>大小</th>
+                            <th>时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="exportHistoryBody">
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                暂无导出记录
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/page-admin-data-export.js" defer></script>
+{% endblock %}
+
+<style>
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+</style>

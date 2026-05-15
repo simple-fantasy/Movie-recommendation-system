@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}创建影单 - CineMatch{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="row">
+    <div class="col-md-8 mx-auto">
+      <div class="p-4 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);">
+        <h2 class="mb-4">创建新影单</h2>
+        <form id="create-form">
+          <div class="mb-4">
+            <label for="name" class="form-label">影单名称 *</label>
+            <input type="text" id="name" class="form-control bg-dark text-light border-secondary" placeholder="输入影单名称" required />
+          </div>
+          <div class="mb-4">
+            <label for="description" class="form-label">影单描述</label>
+            <textarea id="description" class="form-control bg-dark text-light border-secondary" rows="4" placeholder="描述你的影单..."></textarea>
+          </div>
+          <div class="mb-4 form-check">
+            <input type="checkbox" id="is_public" class="form-check-input" checked />
+            <label class="form-check-label" for="is_public">公开影单（其他人可以查看）</label>
+          </div>
+          <div class="mb-4 form-check">
+            <input type="checkbox" id="allow_comments" class="form-check-input" checked />
+            <label class="form-check-label" for="allow_comments">允许评论</label>
+          </div>
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-cinema flex-fill">创建影单</button>
+            <a href="/movie-lists" class="btn btn-cinema-outline flex-fill">取消</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-create-movie-list.js" defer></script>
+{% endblock %}

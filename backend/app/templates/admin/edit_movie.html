@@ -1,0 +1,152 @@
+{% extends "admin/base.html" %}
+
+{% block title %}编辑电影{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.movies_list') }}">电影管理</a></li>
+    <li class="breadcrumb-item active">编辑电影</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">编辑电影</h4>
+    <div>
+        <button type="button" id="btn-fetch-metadata" class="btn btn-outline-success me-2 btn-fetch-metadata" data-id="{{ movie.id }}" data-title="{{ movie.title }}">
+            <i class="bi bi-cloud-download me-2"></i>获取元数据
+        </button>
+        <a href="{{ url_for('admin.movies_list') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-2"></i>返回列表
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- 左侧：预览 -->
+    <div class="col-md-4">
+        <div class="table-container p-4 text-center">
+            <h6 class="mb-3">海报预览</h6>
+            {% if movie.poster_url %}
+                <img src="{{ movie.poster_url }}" alt="{{ movie.title }}" class="img-fluid rounded mb-3" style="max-height: 300px;">
+            {% else %}
+                <div class="bg-light rounded d-flex align-items-center justify-content-center mb-3" style="height: 300px;">
+                    <div class="text-center text-muted">
+                        <i class="bi bi-image fs-1"></i>
+                        <p>暂无海报</p>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <div class="small text-muted">
+                <p class="mb-1"><strong>ID:</strong> {{ movie.id }}</p>
+                <p class="mb-1"><strong>创建时间:</strong> {{ movie.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p class="mb-1"><strong>更新时间:</strong> {{ movie.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                {% if movie.tmdb_id %}
+                    <p class="mb-1"><strong>TMDB ID:</strong> {{ movie.tmdb_id }}</p>
+                {% endif %}
+                {% if movie.imdb_id %}
+                    <p class="mb-1"><strong>IMDb ID:</strong> {{ movie.imdb_id }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- 右侧：编辑表单 -->
+    <div class="col-md-8">
+        <div class="table-container p-4">
+            <form method="POST">
+                <div class="row g-3">
+                    <!-- 基本信息 -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">电影标题</label>
+                        <input type="text" class="form-control" name="title" value="{{ movie.title }}" required>
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">年份</label>
+                        <input type="number" class="form-control" name="year" value="{{ movie.year or '' }}">
+                    </div>
+                    
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">时长（分钟）</label>
+                        <input type="number" class="form-control" name="runtime" value="{{ movie.runtime or '' }}">
+                    </div>
+                    
+                    <!-- 导演和类型 -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">导演</label>
+                        <input type="text" class="form-control" name="director" value="{{ movie.director or '' }}">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">类型</label>
+                        <input type="text" class="form-control" name="genres" value="{{ movie.genres or '' }}">
+                    </div>
+                    
+                    <!-- 演员 -->
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">演员</label>
+                        <input type="text" class="form-control" name="actors" value="{{ movie.get_actors_list() | join(', ') }}">
+                        <div class="form-text">多个演员用逗号分隔</div>
+                    </div>
+                    
+                    <!-- 简介 -->
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">剧情简介</label>
+                        <textarea class="form-control" name="description" rows="4">{{ movie.description or '' }}</textarea>
+                    </div>
+                    
+                    <!-- 图片链接 -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">海报URL</label>
+                        <input type="url" class="form-control" name="poster_url" value="{{ movie.poster_url or '' }}">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">背景图URL</label>
+                        <input type="url" class="form-control" name="backdrop_url" value="{{ movie.backdrop_url or '' }}">
+                    </div>
+                    
+                    <div class="col-12">
+                        <label class="form-label fw-semibold">预告片URL</label>
+                        <input type="url" class="form-control" name="trailer_url" value="{{ movie.trailer_url or '' }}">
+                    </div>
+                    
+                    <!-- 状态和选项 -->
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">状态</label>
+                        <select class="form-select" name="status">
+                            <option value="active" {% if movie.status == 'active' %}selected{% endif %}>已上架</option>
+                            <option value="pending" {% if movie.status == 'pending' %}selected{% endif %}>待审核</option>
+                            <option value="inactive" {% if movie.status == 'inactive' %}selected{% endif %}>已下架</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label fw-semibold">选项</label>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" name="is_featured" id="is_featured" {% if movie.is_featured %}checked{% endif %}>
+                            <label class="form-check-label" for="is_featured">
+                                设为推荐电影
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <div class="d-flex justify-content-end">
+                    <a href="{{ url_for('admin.movies_list') }}" class="btn btn-outline-secondary me-2">取消</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>保存修改
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/page-admin-movies.js" defer></script>
+{% endblock %}

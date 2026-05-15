@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}高级搜索 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .search-panel { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:16px; overflow:hidden; }
+  .search-header { background:linear-gradient(135deg,rgba(229,160,13,.2),rgba(229,160,13,.05)); padding:2rem; text-align:center; border-bottom:1px solid var(--cinema-border); }
+  .search-body { padding:2rem; }
+  .filter-section { background:rgba(0,0,0,.2); border-radius:12px; padding:1.5rem; }
+  .suggestions-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--cinema-surface-elevated); border:1px solid var(--cinema-border); border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.4); z-index:1000; max-height:300px; overflow-y:auto; display:none; }
+  .suggestion-item { padding:.75rem 1rem; cursor:pointer; border-bottom:1px solid var(--cinema-border); transition:background .2s; }
+  .suggestion-item:hover { background:rgba(229,160,13,.08); }
+  .movie-grid { display:grid; grid-template-columns: repeat(auto-fill,minmax(260px,1fr)); gap:1.5rem; }
+  .movie-card { background:var(--cinema-surface); border-radius:12px; overflow:hidden; border:1px solid var(--cinema-border); transition:all .3s ease; cursor:pointer; }
+  .movie-card:hover { transform:translateY(-4px); border-color:var(--cinema-accent); box-shadow:0 12px 24px rgba(0,0,0,.3); }
+  .movie-poster { width:100%; height:200px; object-fit:cover; background:var(--cinema-surface-elevated); }
+  .movie-info { padding:1.25rem; }
+  .genre-tag { background:rgba(255,255,255,.06); color:var(--cinema-text-secondary); padding:.25rem .5rem; border-radius:4px; font-size:.75rem; }
+  .sort-btn { padding:.5rem 1rem; border:1px solid var(--cinema-border); background:var(--cinema-surface); border-radius:6px; font-size:.875rem; cursor:pointer; transition:all .3s; color:var(--cinema-text); }
+  .sort-btn:hover { border-color:var(--cinema-accent); color:var(--cinema-accent); }
+  .sort-btn.active { background:var(--cinema-accent); color:#0a0a0a; border-color:var(--cinema-accent); }
+  .page-btn { padding:.5rem .75rem; border:1px solid var(--cinema-border); background:var(--cinema-surface); border-radius:6px; cursor:pointer; transition:all .3s; color:var(--cinema-text); min-width:40px; text-align:center; }
+  .page-btn:hover { border-color:var(--cinema-accent); color:var(--cinema-accent); }
+  .page-btn.active { background:var(--cinema-accent); color:#0a0a0a; border-color:var(--cinema-accent); }
+  .page-btn:disabled { opacity:.5; cursor:not-allowed; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="search-panel">
+    <div class="search-header">
+      <h1 class="fw-bold mb-1"><i class="ph ph-magnifying-glass"></i> 高级搜索</h1>
+      <p class="text-secondary mb-0">智能搜索，精准找到您想看的电影</p>
+    </div>
+    <div class="search-body">
+      <form id="search-form">
+        <div class="position-relative mb-4">
+          <input type="text" id="search-query" class="form-control form-control-lg bg-dark text-light border-secondary" placeholder="输入电影名称、演员或导演..." autocomplete="off">
+          <div id="suggestions-dropdown" class="suggestions-dropdown"></div>
+        </div>
+        <div class="filter-section mb-4">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label text-secondary small">电影类型</label>
+              <select id="genre-filter" class="form-select bg-dark text-light border-secondary"><option value="">所有类型</option><option value="Action">动作</option><option value="Comedy">喜剧</option><option value="Drama">剧情</option><option value="Sci-Fi">科幻</option><option value="Romance">爱情</option><option value="Horror">恐怖</option><option value="Thriller">悬疑</option><option value="Animation">动画</option><option value="Documentary">纪录片</option></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-secondary small">年份范围</label>
+              <div class="d-flex gap-2 align-items-center">
+                <input type="number" id="year-min" class="form-control bg-dark text-light border-secondary" placeholder="最早" min="1900" max="2024">
+                <span class="text-secondary">至</span>
+                <input type="number" id="year-max" class="form-control bg-dark text-light border-secondary" placeholder="最新" min="1900" max="2024">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label text-secondary small">最低评分</label>
+              <select id="rating-min" class="form-select bg-dark text-light border-secondary"><option value="">不限</option><option value="4.5">4.5分以上</option><option value="4.0">4.0分以上</option><option value="3.5">3.5分以上</option><option value="3.0">3.0分以上</option><option value="2.5">2.5分以上</option></select>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-3 justify-content-center">
+          <button type="submit" class="btn btn-cinema"><i class="ph ph-magnifying-glass"></i> 搜索电影</button>
+          <button id="reset-filters-btn" type="button" class="btn btn-cinema-outline"><i class="ph ph-arrow-counter-clockwise"></i> 重置筛选</button>
+        </div>
+      </form>
+    </div>
+    <div id="results-section" style="display:none; padding:0 2rem 2rem;">
+      <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary">
+        <div><div class="fw-bold" id="results-count">找到 0 部电影</div><div class="text-secondary small" id="search-time">搜索耗时: 0.0s</div></div>
+        <div class="d-flex gap-2 align-items-center"><span class="text-secondary small">排序:</span><button class="sort-btn active" data-sort="relevance">相关性</button><button class="sort-btn" data-sort="year">年份</button><button class="sort-btn" data-sort="rating">评分</button><button class="sort-btn" data-sort="title">标题</button></div>
+      </div>
+      <div id="movies-grid" class="movie-grid"></div>
+      <div id="pagination" class="d-flex justify-content-center gap-2 mt-4"></div>
+    </div>
+    <div id="loading" class="text-center py-5" style="display:none;"><div class="spinner-border text-accent mb-2" style="color:var(--cinema-accent)!important;" role="status"></div><p class="text-secondary">正在搜索中...</p></div>
+    <div id="no-results" class="text-center text-secondary py-5" style="display:none;"><div style="font-size:3rem;">🔍</div><h4>未找到相关电影</h4><p>请尝试调整搜索条件或关键词</p></div>
+    <div class="p-4 mx-4 mb-4 rounded-3" style="background:rgba(0,0,0,.2);">
+      <div class="fw-bold mb-3">热门搜索</div>
+      <div class="d-flex flex-wrap gap-2" id="popular-tags"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-advanced-search.js" defer></script>
+{% endblock %}

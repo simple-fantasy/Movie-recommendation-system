@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}用户画像 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .stat-card-d { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:12px; text-align:center; padding:1.5rem; }
+  .stat-card-d .stat-value { font-size:2.5rem; font-weight:700; color:var(--cinema-accent); margin-bottom:.5rem; }
+  .stat-card-d .stat-label { color:var(--cinema-text-secondary); font-size:.875rem; text-transform:uppercase; letter-spacing:.5px; }
+  .tag-pill { display:inline-block; padding:.375rem .75rem; border-radius:20px; font-size:.875rem; font-weight:500; margin:.25rem; }
+  .tag-primary { background:rgba(59,130,246,.12); color:#60a5fa; }
+  .tag-success { background:rgba(16,185,129,.12); color:#34d399; }
+  .tag-warning { background:rgba(229,160,13,.12); color:var(--cinema-accent); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="row mb-4 align-items-center">
+    <div class="col"><h1 class="mb-2">用户画像</h1><p class="text-secondary">基于您的观影行为分析，了解您的观影偏好</p></div>
+    <div class="col-auto"><button id="refresh-profile-btn" class="btn btn-cinema btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新</button></div>
+  </div>
+  <div id="loading" class="d-flex justify-content-center align-items-center" style="height:200px;">
+    <div class="spinner-border" role="status" style="width:3rem;height:3rem;color:var(--cinema-accent)!important;"><span class="visually-hidden">加载中...</span></div>
+  </div>
+  <div id="profile-content" style="display:none;">
+    <div class="row mb-4 g-3">
+      <div class="col-6 col-md-3"><div class="stat-card-d"><div class="stat-value" id="avg-rating">-</div><div class="stat-label">平均评分</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card-d"><div class="stat-value" id="total-movies">-</div><div class="stat-label">观影数量</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card-d"><div class="stat-value" id="watch-time">-</div><div class="stat-label">观影时长(小时)</div></div></div>
+      <div class="col-6 col-md-3"><div class="stat-card-d"><div class="stat-value" id="diversity">-</div><div class="stat-label">类型多样性</div></div></div>
+    </div>
+    <div class="row mb-4 g-3">
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">偏好类型</h5><div id="genres-chart" style="height:400px;"></div></div></div>
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">偏好年代</h5><div id="years-chart" style="height:400px;"></div></div></div>
+    </div>
+    <div class="row mb-4 g-3">
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">偏好演员</h5><div id="actors-list"></div></div></div>
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">偏好导演</h5><div id="directors-list"></div></div></div>
+    </div>
+    <div class="row g-3">
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">用户类型</h5><div class="d-flex flex-wrap gap-2" id="user-type-tags"></div></div></div>
+      <div class="col-md-6"><div class="p-3 rounded-3" style="background:var(--cinema-surface);border:1px solid var(--cinema-border);"><h5 class="mb-3">评分行为</h5>
+        <div class="row g-3">
+          <div class="col-6"><p class="mb-1 text-secondary small">评分水平</p><div class="progress bg-dark"><div class="progress-bar" id="rating-level-bar" style="width:0%;background:var(--cinema-accent)!important;"></div></div></div>
+          <div class="col-6"><p class="mb-1 text-secondary small">苛刻程度</p><div class="progress bg-dark"><div class="progress-bar bg-warning" id="rating-variance-bar" style="width:0%"></div></div></div>
+        </div>
+      </div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script type="module" src="/static/js/page-user-profile.js"></script>
+{% endblock %}

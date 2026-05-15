@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}我的评分 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .stats-card { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:12px; padding:1.25rem; }
+  .stats-card .stat-row { display:flex; justify-content:space-between; align-items:center; padding:.35rem 0; }
+  .stats-card .stat-value { font-weight:700; color:var(--cinema-accent); }
+  .rating-histogram { display:flex; align-items:flex-end; gap:4px; height:80px; padding:.5rem; }
+  .hist-bar { flex:1; background:linear-gradient(180deg,var(--cinema-accent) 0%,#c78e0a 100%); border-radius:4px 4px 0 0; min-height:4px; transition:height .3s ease; }
+  .list-item { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:10px; padding:1rem; margin-bottom:.75rem; transition:all .2s; display:flex; gap:1rem; align-items:center; }
+  .list-item:hover { border-color:var(--cinema-accent); transform:translateX(4px); }
+  .poster-thumb { width:50px; height:75px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-12 col-lg-3">
+      <div class="stats-card mb-3">
+        <div class="fw-bold mb-3" style="color:var(--cinema-accent);">评分统计</div>
+        <div class="stat-row"><span class="text-secondary">评分总数</span><span class="stat-value" id="stat-count">-</span></div>
+        <div class="stat-row"><span class="text-secondary">平均评分</span><span class="stat-value" id="stat-avg">-</span></div>
+        <div class="stat-row"><span class="text-secondary">最高评分</span><span class="stat-value" id="stat-max">-</span></div>
+        <div class="stat-row"><span class="text-secondary">最低评分</span><span class="stat-value" id="stat-min">-</span></div>
+      </div>
+      <div class="stats-card">
+        <div class="fw-bold mb-3">评分分布</div>
+        <div class="rating-histogram" id="histogram">
+          <div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div><div class="hist-bar" style="height:0%"></div>
+        </div>
+        <div class="d-flex justify-content-between mt-1 text-secondary small"><span>0.5</span><span>3.0</span><span>5.0</span></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-9">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><h2 class="fw-bold">我的评分记录</h2><p class="text-secondary small">查看和管理你的电影评分</p></div>
+        <button id="btnRefresh" class="btn btn-cinema-outline btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新</button>
+      </div>
+      <div id="ratings-list">
+        <div class="text-center text-secondary py-5"><div style="font-size:3rem;">⭐</div><p>暂无评分记录</p><p class="small">登录后可以给电影评分</p><a href="/login" class="btn btn-cinema btn-sm mt-2">去登录</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-ratings.js" defer></script>
+{% endblock %}

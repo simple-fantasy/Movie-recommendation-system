@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}我的评论 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .stats-card { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:12px; padding:1.25rem; }
+  .stats-card .stat-row { display:flex; justify-content:space-between; align-items:center; padding:.35rem 0; }
+  .stats-card .stat-value { font-weight:700; color:var(--cinema-accent); }
+  .list-item { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:10px; padding:1rem; margin-bottom:.75rem; transition:all .2s; }
+  .list-item:hover { border-color:var(--cinema-accent); }
+  .review-content { line-height:1.6; white-space:pre-wrap; word-break:break-word; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row g-4">
+    <div class="col-12 col-lg-3">
+      <div class="stats-card mb-3">
+        <div class="fw-bold mb-3" style="color:var(--cinema-accent);">评论统计</div>
+        <div class="stat-row"><span class="text-secondary">评论总数</span><span class="stat-value" id="stat-count">-</span></div>
+        <div class="stat-row"><span class="text-secondary">获赞总数</span><span class="stat-value" id="stat-likes">-</span></div>
+        <div class="stat-row"><span class="text-secondary">平均点赞</span><span class="stat-value" id="stat-avg-likes">-</span></div>
+      </div>
+      <div class="stats-card">
+        <div class="fw-bold mb-3">发表新评论</div>
+        <label class="form-label text-secondary small">电影ID</label>
+        <input id="new-movie-id" class="form-control form-control-sm mb-2 bg-dark text-light border-secondary" placeholder="输入电影ID" />
+        <label class="form-label text-secondary small">评分（可选）</label>
+        <input id="new-rating" type="number" min="0.5" max="5" step="0.5" class="form-control form-control-sm mb-2 bg-dark text-light border-secondary" placeholder="0.5-5.0" />
+        <label class="form-label text-secondary small">评论内容</label>
+        <textarea id="new-content" class="form-control form-control-sm mb-2 bg-dark text-light border-secondary" rows="3" placeholder="写下你的评论..."></textarea>
+        <button id="btn-post-review" class="btn btn-cinema btn-sm w-100">发表评论</button>
+        <div id="post-msg" class="text-secondary small mt-2"></div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-9">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div><h2 class="fw-bold">我的评论</h2><p class="text-secondary small">查看和管理你的电影评论</p></div>
+        <button id="btnRefresh" class="btn btn-cinema-outline btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新</button>
+      </div>
+      <div id="reviews-list">
+        <div class="text-center text-secondary py-5"><div style="font-size:3rem;">💬</div><p>暂无评论记录</p><p class="small">登录后可以发表电影评论</p><a href="/login" class="btn btn-cinema btn-sm mt-2">去登录</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-reviews.js" defer></script>
+{% endblock %}

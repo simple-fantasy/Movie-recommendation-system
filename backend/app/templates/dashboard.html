@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}数据看板 - CineMatch{% endblock %}
+{% block extra_css %}
+<style>
+  .dashboard-wrapper { max-width:1400px; margin:0 auto; padding:1.5rem; }
+  .page-header { text-align:center; margin-bottom:2rem; }
+  .page-title { font-family:'Playfair Display',serif; font-size:2rem; font-weight:600; margin-bottom:.5rem; background: linear-gradient(135deg,#f8fafc 0%,var(--cinema-accent) 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .page-subtitle { color:var(--cinema-text-secondary); font-size:.95rem; }
+  .dashboard-grid { display:grid; grid-template-columns: repeat(2,1fr); gap:1.5rem; }
+  @media(max-width:1100px){ .dashboard-grid{ grid-template-columns:1fr; } }
+  .card-wide { grid-column:1 / -1; }
+  .dashboard-card { background:var(--cinema-surface); border:1px solid var(--cinema-border); border-radius:16px; padding:1.5rem; transition:all .3s ease; }
+  .dashboard-card:hover { border-color:var(--cinema-accent); box-shadow:0 8px 32px rgba(229,160,13,.08); }
+  .card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; padding-bottom:.75rem; border-bottom:1px solid var(--cinema-border); }
+  .card-title { font-size:1.1rem; font-weight:600; color:var(--cinema-text); display:flex; align-items:center; gap:.5rem; }
+  .info-btn { background:rgba(229,160,13,.1); border:1px solid rgba(229,160,13,.3); color:var(--cinema-accent); width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:help; font-size:.8rem; transition:all .3s; }
+  .info-btn:hover { background:var(--cinema-accent); color:#0a0a0a; }
+  .tooltip-custom { position:relative; }
+  .tooltip-content { display:none; position:absolute; top:100%; right:0; margin-top:.5rem; background:rgba(31,31,31,.98); border:1px solid var(--cinema-border); border-radius:8px; padding:1rem; width:320px; z-index:100; font-size:.85rem; color:var(--cinema-text-secondary); line-height:1.6; }
+  .tooltip-custom:hover .tooltip-content { display:block; }
+  .metrics-grid { display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap:1rem; }
+  .metric-item { background:var(--cinema-surface-elevated); border:1px solid var(--cinema-border); border-radius:12px; padding:1rem; text-align:center; transition:all .3s; }
+  .metric-item:hover { border-color:var(--cinema-accent); transform:translateY(-2px); }
+  .metric-value { font-size:1.5rem; font-weight:700; color:var(--cinema-accent); margin-bottom:.25rem; }
+  .metric-label { font-size:.8rem; color:var(--cinema-text-secondary); }
+  .chart-container { height:320px; position:relative; }
+  .loading-spinner { display:flex; align-items:center; justify-content:center; height:100%; color:var(--cinema-text-secondary); }
+  .data-table { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem; color:var(--cinema-text); }
+  .data-table th,.data-table td { padding:.75rem; text-align:center; border:1px solid var(--cinema-border); }
+  .data-table th { background:var(--cinema-surface-elevated); color:var(--cinema-accent); font-weight:600; }
+  .data-table tr:hover { background:rgba(229,160,13,.05); }
+  .model-badge { display:inline-block; padding:.25rem .5rem; border-radius:4px; font-size:.75rem; font-weight:600; }
+  .badge-hybrid { background:rgba(229,160,13,.2); color:var(--cinema-accent); }
+  .badge-ncf { background:rgba(59,130,246,.2); color:#60a5fa; }
+  .badge-itemcf { background:rgba(16,185,129,.2); color:#34d399; }
+  @media(max-width:768px){ .dashboard-wrapper{padding:1rem;} .metrics-grid{grid-template-columns:repeat(2,1fr);} .page-title{font-size:1.5rem;} }
+</style>
+{% endblock %}
+{% block content %}
+<div class="dashboard-wrapper">
+  <div class="page-header">
+    <h1 class="page-title">数据看板</h1>
+    <p class="page-subtitle">实时监控推荐系统运行状态与评估指标</p>
+  </div>
+  <div class="dashboard-grid">
+    <div class="dashboard-card card-wide">
+      <div class="card-header">
+        <div class="card-title"><i class="ph ph-chart-line-up"></i> 离线评估指标（ItemCF）</div>
+        <div class="tooltip-custom"><div class="info-btn">?</div>
+          <div class="tooltip-content"><strong>指标说明：</strong><br/><strong>Precision@K</strong>：推荐列表中相关电影的比例<br/><strong>Recall@K</strong>：用户喜欢的电影中被推荐的比例<br/><strong>MAP@K</strong>：平均精度均值，综合衡量排序质量<br/><strong>NDCG@K</strong>：归一化折损累计增益，考虑位置权重<br/><strong>Coverage</strong>：推荐系统的长尾覆盖能力</div>
+        </div>
+      </div>
+      <div id="offlineMetrics"><div class="loading-spinner">加载中...</div></div>
+    </div>
+    <div class="dashboard-card card-wide">
+      <div class="card-header">
+        <div class="card-title"><i class="ph ph-arrows-clockwise"></i> 多模型对比与消融实验</div>
+        <div class="tooltip-custom"><div class="info-btn">?</div>
+          <div class="tooltip-content"><strong>模型说明：</strong><br/><strong>ItemCF</strong>：基于物品相似度的协同过滤<br/><strong>NCF</strong>：神经网络协同过滤，使用深度学习<br/><strong>Hybrid</strong>：融合ItemCF和NCF的混合推荐<br/><strong>消融实验</strong>：调整不同参数观察效果变化</div>
+        </div>
+      </div>
+      <div id="multiModelMetrics"><div class="loading-spinner">加载中...</div></div>
+    </div>
+    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-star"></i> 评分分布</div></div><div id="chartRatings" class="chart-container"></div></div>
+    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-mask-happy"></i> 类型占比</div></div><div id="chartGenres" class="chart-container"></div></div>
+    <div class="dashboard-card card-wide"><div class="card-header"><div class="card-title"><i class="ph ph-calendar"></i> 年份趋势（评分数量 & 平均评分）</div></div><div id="chartYears" class="chart-container"></div></div>
+    <div class="dashboard-card card-wide"><div class="card-header"><div class="card-title"><i class="ph ph-fire"></i> 热门电影（评分人数 Top）</div></div><div id="chartPopular" class="chart-container"></div></div>
+    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-users"></i> 活跃用户</div></div><div id="chartUsers" class="chart-container"></div></div>
+    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-chart-bar"></i> 电影评分次数分布</div></div><div id="chartMovieCounts" class="chart-container"></div></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/page-dashboard.js" defer></script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}用户洞察 - CineMatch{% endblock %}
+{% block content %}
+<div class="container py-5">
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="mb-2">用户洞察</h1>
+      <p class="text-secondary">基于您的观影行为，为您提供个性化分析</p>
+    </div>
+  </div>
+  <div id="loading" class="d-flex justify-content-center align-items-center" style="height:200px;">
+    <div class="spinner-border" role="status" style="width:3rem;height:3rem;color:var(--cinema-accent)!important;"><span class="visually-hidden">加载中...</span></div>
+  </div>
+  <div id="insights-content" style="display:none;">
+    <div class="row" id="insights-grid"></div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script type="module" src="/static/js/page-user-insights.js"></script>
+{% endblock %}

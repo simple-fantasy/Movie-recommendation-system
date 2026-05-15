@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+{% block title %}电影详情 - CineMatch{% endblock %}
+
+{% block content %}
+<div id="movieApp">
+  <!-- Loading State -->
+  <div v-if="loading" class="container py-5">
+    <div class="loading-skeleton mb-3" style="height: 400px; border-radius: 16px;"></div>
+    <div class="row g-3">
+      <div class="col-md-8"><div class="loading-skeleton" style="height: 200px;"></div></div>
+      <div class="col-md-4"><div class="loading-skeleton" style="height: 200px;"></div></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div v-else-if="movie.id">
+    <!-- Hero Backdrop -->
+    <section class="position-relative" style="min-height: 55vh; display: flex; align-items: flex-end; margin-top: -60px; padding-top: 60px;">
+      <div class="position-absolute inset-0">
+        <img :src="movie.backdrop || movie.poster || '/static/img/poster-placeholder.svg'"
+             class="w-100 h-100" style="object-fit: cover; filter: brightness(0.4) saturate(1.1);"
+             :alt="movie.title">
+        <div style="position: absolute; inset: 0; background: linear-gradient(to top, var(--cinema-bg) 0%, transparent 60%, rgba(0,0,0,0.5) 100%);"></div>
+      </div>
+
+      <div class="container position-relative pb-4">
+        <div class="row align-items-end">
+          <div class="col-4 col-md-3 col-lg-2">
+            <div class="rounded-3 overflow-hidden shadow-lg" style="aspect-ratio: 2/3;">
+              <img :src="movie.poster || '/static/img/poster-placeholder.svg'" class="w-100 h-100" style="object-fit: cover;" :alt="movie.title">
+            </div>
+          </div>
+          <div class="col-8 col-md-9 col-lg-10">
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <span v-if="movie.year" class="badge bg-dark border text-light">{{ movie.year }}</span>
+              <span v-if="movie.genres" class="badge bg-dark border text-light">{{ movie.genres }}</span>
+              <span v-if="movie.runtime" class="badge bg-dark border text-light">{{ movie.runtime }} min</span>
+              <span v-if="movie.avg_rating" class="badge badge-accent">
+                <i class="ph ph-star"></i> {% raw %}{{ movie.avg_rating.toFixed(1) }}{% endraw %}
+              </span>
+            </div>
+            <h1 class="display-5 fw-bold text-white mb-2" style="font-family:'Playfair Display',serif;text-shadow:0 2px 20px rgba(0,0,0,0.6);">
+              {% raw %}{{ formatTitle(movie.title) }}{% endraw %}</h1>
+            <p v-if="movie.tagline" class="text-white-50 fst-italic mb-2">{{ movie.tagline }}</p>
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button class="btn btn-cinema d-inline-flex align-items-center gap-2"
+                      data-bs-toggle="modal" data-bs-target="#rateModal">
+                <i class="ph ph-star" style="font-size:1.25rem;"></i>
+                <span>{% raw %}{{ userRating ? '已评分 ' + userRating + '★' : '评分' }}{% endraw %}</span>
+              </button>
+              <button class="btn btn-cinema-outline d-inline-flex align-items-center gap-2"
+                      @click="toggleCollection"
+                      :class="isCollected ? 'active' : ''">
+                <i class="ph" :class="isCollected ? 'ph-heart-fill' : 'ph-heart'" style="font-size:1.25rem;"></i>
+                <span>{% raw %}{{ isCollected ? '已收藏' : '收藏' }}{% endraw %}</span>
+              </button>
+              <a v-if="movie.tmdb_id" :href="'https://www.themoviedb.org/movie/' + movie.tmdb_id" target="_blank"
+                 class="btn btn-cinema-outline d-inline-flex align-items-center gap-2">
+                <i class="ph ph-arrow-square-out" style="font-size:1.25rem;"></i> TMDB
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Info -->
+    <div class="container py-4">
+      <div class="row g-4">
+        <!-- Left: Overview + Details -->
+        <div class="col-lg-8">
+          <div class="glass-strong p-4 rounded-3 mb-4">
+            <h3 class="h5 fw-bold mb-3">剧情简介</h3>
+            <p class="text-secondary" style="line-height: 1.8;">{% raw %}{{ movie.overview || '暂无简介' }}{% endraw %}</p>
+
+            <div class="row g-3 mt-2">
+              <div v-if="movie.director" class="col-6 col-md-4">
+                <div class="text-muted small mb-1">导演</div>
+                <div class="fw-medium">{{ movie.director }}</div>
+              </div>
+              <div v-if="movie.actors" class="col-6 col-md-4">
+                <div class="text-muted small mb-1">主演</div>
+                <div class="fw-medium text-truncate">{% raw %}{{ formatActors(movie.actors) }}{% endraw %}</div>
+              </div>
+              <div class="col-6 col-md-4">
+                <div class="text-muted small mb-1">电影ID</div>
+                <div class="font-monospace text-muted">{{ movie.id }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Why Recommended -->
+          <div v-if="reasons.length" class="glass-strong p-4 rounded-3 mb-4">
+            <h3 class="h5 fw-bold mb-3 d-flex align-items-center gap-2">
+              <i class="ph ph-lightbulb" style="color: var(--cinema-accent);"></i>
+              推荐理由
+            </h3>
+            <div class="d-flex flex-wrap gap-2">
+              <span v-for="r in reasons" :key="r" class="badge bg-dark border text-light px-3 py-2">
+                {{ r }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Watch Links -->
+          <div v-if="watchLinks.length" class="glass-strong p-4 rounded-3 mb-4">
+            <h3 class="h5 fw-bold mb-3 d-flex align-items-center gap-2">
+              <i class="ph ph-play" style="color: var(--cinema-accent);"></i>
+              观看链接
+            </h3>
+            <div class="d-flex flex-wrap gap-2">
+              <a v-for="link in watchLinks" :key="link.id" :href="link.url" target="_blank"
+                 class="btn btn-cinema-outline btn-sm d-inline-flex align-items-center gap-1">
+                <i class="ph ph-arrow-square-out"></i> {% raw %}{{ link.platform || '链接' }}{% endraw %}
+              </a>
+            </div>
+          </div>
+
+          <!-- Reviews -->
+          <div class="glass-strong p-4 rounded-3">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h3 class="h5 fw-bold mb-0 d-flex align-items-center gap-2">
+                <i class="ph ph-chat-circle-text" style="color: var(--cinema-accent);"></i>
+                评论
+              </h3>
+              <button v-if="user" class="btn btn-cinema btn-sm" data-bs-toggle="collapse" data-bs-target="#reviewForm">写评论</button>
+            </div>
+
+            <div v-if="user" id="reviewForm" class="collapse mb-3">
+              <textarea v-model="newReview" class="form-control mb-2" rows="3" placeholder="分享你的观影感受..."></textarea>
+              <div class="d-flex justify-content-end">
+                <button class="btn btn-cinema btn-sm" @click="submitReview" :disabled="!newReview.trim()">提交</button>
+              </div>
+            </div>
+
+            <div v-if="reviews.length" class="d-flex flex-column gap-3">
+              <div v-for="review in reviews" :key="review.id" class="p-3 rounded-2" style="background: rgba(0,0,0,0.2);">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <span class="fw-medium">{% raw %}{{ review.user?.username || '用户' }}{% endraw %}</span>
+                  <span class="text-muted small">{{ review.created_at }}</span>
+                </div>
+                <p class="mb-1">{{ review.content }}</p>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-link text-decoration-none p-0" style="color: var(--cinema-text-secondary);"
+                          @click="likeReview(review.id)">
+                    <i class="ph ph-thumbs-up"></i> {% raw %}{{ review.likes || 0 }}{% endraw %}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-center text-muted py-3">暂无评论</div>
+          </div>
+        </div>
+
+        <!-- Right: Similar Movies -->
+        <div class="col-lg-4">
+          <div class="glass-strong p-3 rounded-3 sticky-top" style="top: 80px;">
+            <h3 class="h5 fw-bold mb-3 d-flex align-items-center gap-2">
+              <i class="ph ph-film-strip" style="color: var(--cinema-accent);"></i>
+              相似电影
+            </h3>
+            <div v-if="similarLoading" class="d-flex flex-column gap-2">
+              <div v-for="n in 5" :key="n" class="loading-skeleton" style="height: 80px;"></div>
+            </div>
+            <div v-else-if="similar.length" class="d-flex flex-column gap-2">
+              <a v-for="sm in similar" :key="sm.id" :href="'/movie/' + sm.id"
+                 class="d-flex gap-3 p-2 rounded-2 text-decoration-none"
+                 style="background: rgba(0,0,0,0.2); transition: background 0.2s;"
+                 @mouseenter="$event.currentTarget.style.background='rgba(229,160,13,0.1)'"
+                 @mouseleave="$event.currentTarget.style.background='rgba(0,0,0,0.2)'"
+              >
+                <img :src="sm.poster || '/static/img/poster-placeholder.svg'" class="rounded-1 flex-shrink-0"
+                     style="width: 50px; height: 75px; object-fit: cover;">
+                <div class="flex-grow-1 min-w-0">
+                  <div class="fw-medium text-truncate" style="color: var(--cinema-text);">{% raw %}{{ formatTitle(sm.title) }}{% endraw %}</div>
+                  <div class="small text-muted">{{ sm.year }} <span v-if="sm.similarity" style="color: var(--cinema-accent);">{% raw %}{{ (sm.similarity * 100).toFixed(0) }}{% endraw %}%</span></div>
+                </div>
+              </a>
+            </div>
+            <div v-else class="text-center text-muted py-3">暂无相似电影</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Rate Modal -->
+<div class="modal fade" id="rateModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">评分</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4" id="rateModalBody">
+        <star-rating :model-value="modalRating" :max="5" @rate="modalRating = $event"></star-rating>
+        <p class="text-muted mt-3">{% raw %}{{ modalRating ? modalRating + ' 星' : '点击星星进行评分' }}{% endraw %}</p>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-cinema-outline" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-cinema" @click="submitRating" :disabled="!modalRating">提交</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const { createApp } = Vue;
+const { StarRating } = window.CinemaComponents;
+
+const movieApp = createApp({
+  components: { StarRating },
+  data() {
+    return {
+      movieId: parseInt(document.querySelector('main')?.dataset?.movieId || window.location.pathname.split('/').pop()),
+      movie: {},
+      similar: [],
+      reviews: [],
+      watchLinks: [],
+      reasons: [],
+      loading: true,
+      similarLoading: true,
+      user: null,
+      userRating: 0,
+      isCollected: false,
+      collectionId: null,
+      newReview: '',
+      modalRating: 0
+    };
+  },
+  async mounted() {
+    await this.checkAuth();
+    await this.loadMovie();
+    this.loadSimilar();
+    this.loadReviews();
+    this.loadWatchLinks();
+    if (this.user) {
+      this.checkCollection();
+      this.loadMyRating();
+    }
+  },
+  methods: {
+    async checkAuth() {
+      try { this.user = await api('/api/me'); } catch (e) { this.user = null; }
+    },
+    async loadMovie() {
+      this.loading = true;
+      try {
+        this.movie = await api('/api/movies/' + this.movieId);
+        document.title = this.formatTitle(this.movie.title) + ' - CineMatch';
+      } catch (e) {
+        showToast('加载电影详情失败', 'error');
+      } finally {
+        this.loading = false;
+      }
+    },
+    async loadSimilar() {
+      this.similarLoading = true;
+      try {
+        const data = await api('/api/movies/' + this.movieId + '/similar');
+        this.similar = data.similar || [];
+      } catch (e) {
+        this.similar = [];
+      } finally {
+        this.similarLoading = false;
+      }
+    },
+    async loadReviews() {
+      try {
+        const data = await api('/api/movies/' + this.movieId + '/reviews');
+        this.reviews = data.reviews || [];
+      } catch (e) {
+        this.reviews = [];
+      }
+    },
+    async loadWatchLinks() {
+      try {
+        const data = await api('/api/movies/' + this.movieId + '/watch-links');
+        this.watchLinks = data.links || [];
+      } catch (e) {
+        this.watchLinks = [];
+      }
+    },
+    async checkCollection() {
+      try {
+        const data = await api('/api/movies/' + this.movieId + '/collection-status');
+        this.isCollected = data.is_favorite || data.in_watchlist || data.is_seen;
+        this.collectionId = data.collection_ids?.favorite || null;
+      } catch (e) {
+        this.isCollected = false;
+        this.collectionId = null;
+      }
+    },
+    async loadMyRating() {
+      try {
+        const data = await api('/api/my/ratings?limit=100');
+        const ratings = Array.isArray(data) ? data : (data.ratings || []);
+        const found = ratings.find(r => r.movie_id === this.movieId);
+        if (found) this.userRating = found.rating;
+      } catch (e) {}
+    },
+    async toggleCollection() {
+      if (!this.user) { showToast('请先登录', 'error'); return; }
+      try {
+        if (this.isCollected) {
+          if (this.collectionId) {
+            await api('/api/collections/' + this.collectionId, { method: 'DELETE' });
+          }
+          this.isCollected = false;
+          this.collectionId = null;
+          showToast('已取消收藏');
+        } else {
+          await api('/api/collections', { method: 'POST', body: { movie_id: this.movieId, collection_type: 'favorite' } });
+          this.isCollected = true;
+          showToast('已收藏');
+          this.checkCollection();
+        }
+      } catch (e) {
+        showToast('操作失败', 'error');
+      }
+    },
+    async submitRating() {
+      if (!this.user) { showToast('请先登录', 'error'); return; }
+      try {
+        await api('/api/ratings', {
+          method: 'POST',
+          body: { movie_id: this.movieId, rating: this.modalRating }
+        });
+        this.userRating = this.modalRating;
+        showToast('评分成功！');
+        bootstrap.Modal.getInstance(document.getElementById('rateModal')).hide();
+      } catch (e) {
+        showToast(e.message || '评分失败', 'error');
+      }
+    },
+    async submitReview() {
+      if (!this.newReview.trim()) return;
+      try {
+        await api('/api/reviews', {
+          method: 'POST',
+          body: { movie_id: this.movieId, content: this.newReview.trim() }
+        });
+        this.newReview = '';
+        showToast('评论提交成功，等待审核');
+        this.loadReviews();
+      } catch (e) {
+        showToast(e.message || '评论失败', 'error');
+      }
+    },
+    async likeReview(reviewId) {
+      try {
+        await api('/api/reviews/' + reviewId + '/like', { method: 'POST' });
+        this.loadReviews();
+      } catch (e) {}
+    },
+    formatTitle(title) {
+      return formatMovieTitle(title);
+    },
+    formatActors(actors) {
+      if (!actors) return '';
+      if (typeof actors === 'string') {
+        try { actors = JSON.parse(actors); } catch (e) {}
+      }
+      if (Array.isArray(actors)) return actors.slice(0, 3).join(', ');
+      return String(actors).split(',').slice(0, 3).join(', ');
+    }
+  }
+}).mount('#movieApp');
+</script>
+{% endblock %}

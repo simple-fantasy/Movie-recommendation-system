@@ -1,0 +1,323 @@
+{% extends "admin/base.html" %}
+
+{% block title %}权限管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">仪表板</a></li>
+    <li class="breadcrumb-item active">权限管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4><i class="bi bi-shield-check me-2"></i>权限管理</h4>
+    <div>
+        <button type="button" class="btn btn-primary btn-show-add-admin">
+            <i class="bi bi-person-plus me-1"></i>添加管理员
+        </button>
+        <button type="button" class="btn btn-success btn-show-role-modal">
+            <i class="bi bi-gear me-1"></i>角色管理
+        </button>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-people"></i>
+            </div>
+            <div class="number" id="totalUsers">-</div>
+            <div class="label">总用户数</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-shield-check"></i>
+            </div>
+            <div class="number" id="adminUsers">-</div>
+            <div class="label">管理员</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-warning bg-opacity-10 text-warning">
+                <i class="bi bi-clock"></i>
+            </div>
+            <div class="number" id="inactiveAdmins">-</div>
+            <div class="label">未活跃管理员</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="stat-card">
+            <div class="icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <div class="number" id="recentLogins">-</div>
+            <div class="label">今日登录</div>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选和搜索 -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="filterForm" class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">搜索用户</label>
+                <input type="text" class="form-control" id="searchInput" placeholder="输入用户名或邮箱...">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">用户类型</label>
+                <select class="form-select" id="userType">
+                    <option value="">全部用户</option>
+                    <option value="admin">管理员</option>
+                    <option value="user">普通用户</option>
+                    <option value="inactive">未活跃用户</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">权限级别</label>
+                <select class="form-select" id="permissionLevel">
+                    <option value="">全部权限</option>
+                    <option value="super_admin">超级管理员</option>
+                    <option value="admin">管理员</option>
+                    <option value="moderator">版主</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">&nbsp;</label>
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search me-1"></i>筛选
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 用户列表 -->
+<div class="table-container">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>用户</th>
+                <th>邮箱</th>
+                <th>用户类型</th>
+                <th>权限级别</th>
+                <th>状态</th>
+                <th>最后登录</th>
+                <th>注册时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody id="usersTableBody">
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">加载中...</span>
+                    </div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- 分页 -->
+<nav class="d-flex justify-content-center mt-4">
+    <ul class="pagination" id="pagination">
+        <!-- 分页将通过JavaScript动态生成 -->
+    </ul>
+</nav>
+
+<!-- 添加管理员模态框 -->
+<div class="modal fade" id="addAdminModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">添加管理员</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAdminForm">
+                    <div class="mb-3">
+                        <label class="form-label">用户名或邮箱</label>
+                        <input type="text" class="form-control" id="adminUsername" required>
+                        <div class="form-text">输入现有用户的用户名或邮箱</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">权限级别</label>
+                        <select class="form-select" id="adminPermissionLevel" required>
+                            <option value="">选择权限级别</option>
+                            <option value="moderator">版主</option>
+                            <option value="admin">管理员</option>
+                            <option value="super_admin">超级管理员</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">权限说明</label>
+                        <div class="alert alert-info">
+                            <strong>版主：</strong>可管理评论和用户<br>
+                            <strong>管理员：</strong>可管理电影、评论、用户等<br>
+                            <strong>超级管理员：</strong>拥有所有权限
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button id="btn-add-admin" type="button" class="btn btn-primary">
+                    <i class="bi bi-person-plus me-1"></i>添加管理员
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 角色管理模态框 -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">角色权限配置</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>超级管理员</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success me-2"></i>用户管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>电影管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>评论管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>系统设置</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>数据导出</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>权限管理</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>管理员</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success me-2"></i>用户管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>电影管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>评论管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>数据导出</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>系统设置</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>权限管理</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>版主</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-check-circle text-success me-2"></i>评论管理</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>用户管理</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>电影管理</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>系统设置</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>数据导出</li>
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>权限管理</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>普通用户</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="bi bi-x-circle text-danger me-2"></i>管理功能</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>浏览内容</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>发表评论</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>收藏电影</li>
+                            <li><i class="bi bi-check-circle text-success me-2"></i>评分电影</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑权限模态框 -->
+<div class="modal fade" id="editPermissionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑用户权限</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPermissionForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="editUsername" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">权限级别</label>
+                        <select class="form-select" id="editPermissionLevel">
+                            <option value="user">普通用户</option>
+                            <option value="moderator">版主</option>
+                            <option value="admin">管理员</option>
+                            <option value="super_admin">超级管理员</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">用户状态</label>
+                        <select class="form-select" id="editUserStatus">
+                            <option value="active">活跃</option>
+                            <option value="inactive">禁用</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button id="btn-update-permission" type="button" class="btn btn-primary">
+                    <i class="bi bi-check me-1"></i>保存更改
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/page-admin-permission-management.js" defer></script>
+
+<style>
+.user-avatar img {
+    object-fit: cover;
+}
+
+.stat-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e5e7eb;
+}
+
+.stat-card .icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.stat-card .number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.stat-card .label {
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

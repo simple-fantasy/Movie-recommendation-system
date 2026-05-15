@@ -1,0 +1,161 @@
+{% extends "admin/base.html" %}
+
+{% block title %}观看链接管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item active">观看链接管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">观看链接管理</h4>
+    <span class="text-muted">共 {{ pagination.total }} 条链接</span>
+</div>
+
+<!-- 筛选 -->
+<div class="table-container p-3 mb-4">
+    <form method="GET" class="row g-3">
+        <div class="col-md-4">
+            <select class="form-select js-watchlink-status-filter" name="status">
+                <option value="">全部状态</option>
+                <option value="active" {% if status == 'active' %}selected{% endif %}>已通过</option>
+                <option value="pending" {% if status == 'pending' %}selected{% endif %}>待审核</option>
+                <option value="reported" {% if status == 'reported' %}selected{% endif %}>被举报</option>
+                <option value="inactive" {% if status == 'inactive' %}selected{% endif %}>已拒绝</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('admin.watch_links_list') }}" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-x-lg me-2"></i>重置
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- 链接列表 -->
+<div class="table-container">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>电影</th>
+                <th>平台</th>
+                <th>链接</th>
+                <th>画质</th>
+                <th>举报</th>
+                <th>状态</th>
+                <th>时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for link in pagination.items %}
+            <tr {% if link.status == 'reported' %}class="table-danger"{% endif %}>
+                <td>{{ link.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        {% if link.movie.poster_url %}
+                            <img src="{{ link.movie.poster_url }}" alt="" class="me-2" style="width: 30px; height: 45px; object-fit: cover; border-radius: 3px;">
+                        {% endif %}
+                        <div>
+                            <div class="fw-semibold small">{{ link.movie.title }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">{{ link.movie.year or '未知年份' }}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>{{ link.platform }}</td>
+                <td>
+                    <a href="{{ link.url }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;">
+                        {{ link.url[:40] }}...
+                    </a>
+                    {% if link.is_free %}
+                        <span class="badge bg-success ms-1">免费</span>
+                    {% else %}
+                        <span class="badge bg-secondary ms-1">付费</span>
+                    {% endif %}
+                    {% if link.is_official %}
+                        <span class="badge bg-primary ms-1">官方</span>
+                    {% endif %}
+                </td>
+                <td>{{ link.quality }}</td>
+                <td>
+                    {% if link.report_count > 0 %}
+                        <span class="badge bg-danger">{{ link.report_count }}</span>
+                    {% else %}
+                        <span class="text-muted">0</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if link.status == 'active' %}
+                        <span class="badge bg-success">已通过</span>
+                    {% elif link.status == 'pending' %}
+                        <span class="badge bg-warning">待审核</span>
+                    {% elif link.status == 'reported' %}
+                        <span class="badge bg-danger">被举报</span>
+                    {% else %}
+                        <span class="badge bg-secondary">已拒绝</span>
+                    {% endif %}
+                </td>
+                <td>{{ link.created_at.strftime('%m-%d %H:%M') }}</td>
+                <td>
+                    <div class="btn-group">
+                        {% if link.status != 'active' %}
+                            <form method="POST" action="{{ url_for('admin.approve_watch_link', link_id=link.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="通过">
+                                    <i class="bi bi-check-lg"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        {% if link.status != 'inactive' %}
+                            <form method="POST" action="{{ url_for('admin.reject_watch_link', link_id=link.id) }}" style="display: inline;">
+                                <button type="submit" class="btn btn-sm btn-outline-warning" title="拒绝">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('admin.delete_watch_link', link_id=link.id) }}" style="display: inline;" class="js-watchlink-delete-confirm">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="删除">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center p-3 border-top">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.watch_links_list', page=pagination.prev_num, status=status) }}">上一页</a>
+                    </li>
+                {% endif %}
+                
+                {% for p in pagination.iter_pages() %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.watch_links_list', page=p, status=status) }}">{{ p }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.watch_links_list', page=pagination.next_num, status=status) }}">下一页</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+<script src="/static/js/page-admin-watch-links.js" defer></script>
+{% endblock %}

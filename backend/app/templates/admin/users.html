@@ -1,0 +1,143 @@
+{% extends "admin/base.html" %}
+
+{% block title %}用户管理{% endblock %}
+
+{% block breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}">首页</a></li>
+    <li class="breadcrumb-item active">用户管理</li>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4 class="mb-0">用户管理</h4>
+    <span class="text-muted">共 {{ pagination.total }} 位用户</span>
+</div>
+
+<!-- 搜索筛选 -->
+<div class="table-container p-3 mb-4">
+    <form method="GET" class="row g-3">
+        <div class="col-md-6">
+            <div class="search-box">
+                <i class="bi bi-search"></i>
+                <input type="text" class="form-control" name="search" placeholder="搜索用户名" value="{{ search }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-outline-primary w-100">
+                <i class="bi bi-search me-2"></i>搜索
+            </button>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('admin.users_list') }}" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-x-lg me-2"></i>重置
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- 用户列表 -->
+<div class="table-container">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>用户</th>
+                <th>注册时间</th>
+                <th>登录统计</th>
+                <th>状态</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in pagination.items %}
+            <tr {% if user.id == current_user.id %}class="table-primary"{% endif %}>
+                <td>{{ user.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-person-circle fs-4 me-2 text-secondary"></i>
+                        <div>
+                            <div class="fw-semibold">
+                                {{ user.username }}
+                                {% if user.id == current_user.id %}
+                                    <span class="badge bg-info ms-1">我</span>
+                                {% endif %}
+                            </div>
+                            {% if user.is_admin %}
+                                <span class="badge bg-primary">管理员</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>
+                    <div class="small">
+                        <div>登录次数: {{ user.login_count }}</div>
+                        {% if user.last_login %}
+                            <div class="text-muted">最后登录: {{ user.last_login.strftime('%m-%d %H:%M') }}</div>
+                        {% else %}
+                            <div class="text-muted">从未登录</div>
+                        {% endif %}
+                    </div>
+                </td>
+                <td>
+                    {% if user.is_active %}
+                        <span class="badge bg-success">正常</span>
+                    {% else %}
+                        <span class="badge bg-danger">禁用</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group">
+                        {% if user.id != current_user.id %}
+                            <button type="button" class="btn btn-sm btn-outline-primary btn-toggle-admin" data-id="{{ user.id }}" data-username="{{ user.username }}" data-admin="{{ user.is_admin|lower }}" title="{{ '撤销管理员' if user.is_admin else '设为管理员' }}">
+                                <i class="bi bi-{{ 'person-check' if user.is_admin else 'person-plus' }}"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-{{ 'success' if not user.is_active else 'warning' }} btn-toggle-active" data-id="{{ user.id }}" data-username="{{ user.username }}" data-active="{{ user.is_active|lower }}" title="{{ '启用' if not user.is_active else '禁用' }}">
+                                <i class="bi bi-{{ 'check-circle' if not user.is_active else 'pause-circle' }}"></i>
+                            </button>
+                        {% else %}
+                            <span class="text-muted small">不能操作自己</span>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- 分页 -->
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center p-3 border-top">
+        <nav>
+            <ul class="pagination mb-0">
+                {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.users_list', page=pagination.prev_num, search=search) }}">上一页</a>
+                    </li>
+                {% endif %}
+                
+                {% for p in pagination.iter_pages() %}
+                    {% if p %}
+                        <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                            <a class="page-link" href="{{ url_for('admin.users_list', page=p, search=search) }}">{{ p }}</a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.users_list', page=pagination.next_num, search=search) }}">下一页</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/js/page-admin-users.js" defer></script>
+{% endblock %}

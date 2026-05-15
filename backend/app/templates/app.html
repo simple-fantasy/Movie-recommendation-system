@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block title %}首页 - CineMatch{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section id="heroApp" class="cinema-hero">
+  <div class="backdrop">
+    <img v-if="featured.backdrop || featured.poster" :src="featured.backdrop || featured.poster" :alt="featured.title">
+    <div v-else class="loading-skeleton" style="width:100%;height:100%"></div>
+  </div>
+  <div class="container content" v-if="featured.id">
+    <div class="row">
+      <div class="col-lg-7">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <span class="badge badge-accent px-3 py-2">
+            <i class="ph ph-fire"></i> 热门推荐
+          </span>
+          <span v-if="featured.year" class="text-white-50">{{ featured.year }}</span>
+          <span v-if="featured.avg_rating" class="text-warning">
+            <i class="ph ph-star"></i> {% raw %}{{ featured.avg_rating.toFixed(1) }}{% endraw %}
+          </span>
+        </div>
+        <h1 class="display-4 fw-bold text-white mb-3" style="font-family:'Playfair Display',serif;text-shadow:0 2px 20px rgba(0,0,0,0.5);">
+          {% raw %}{{ formatTitle(featured.title) }}{% endraw %}
+        </h1>
+        <p class="lead text-white-50 mb-4" style="max-width:600px;line-height:1.7;">
+          {% raw %}{{ featured.overview || '暂无简介' }}{% endraw %}
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <a :href="'/movie/' + featured.id" class="btn btn-cinema btn-lg d-inline-flex align-items-center gap-2">
+            <i class="ph ph-play-circle" style="font-size:1.5rem;"></i> 查看详情
+          </a>
+          <button class="btn btn-cinema-outline btn-lg d-inline-flex align-items-center gap-2"
+                  @click="showRateModal(featured)">
+            <i class="ph ph-star" style="font-size:1.5rem;"></i> 快速评分
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Main Content -->
+<div class="container py-5" id="mainApp">
+  <movie-row
+    title="为你推荐"
+    :movies="recommendations"
+    :loading="loading.recs"
+    icon="ph-sparkle"
+    empty-text="暂无推荐"
+    empty-subtext="登录并评分电影以获取个性化推荐"
+    @movie-click="goToMovie"
+    @movie-rate="onRate"
+    class="fade-in-up"
+  ></movie-row>
+
+  <movie-row
+    title="热门高分"
+    :movies="popular"
+    :loading="loading.popular"
+    icon="ph-fire"
+    empty-text="暂无数据"
+    @movie-click="goToMovie"
+    @movie-rate="onRate"
+    class="fade-in-up"
+  ></movie-row>
+
+  <!-- Search Section -->
+  <section class="mb-5 fade-in-up">
+    <div class="glass-strong p-4 rounded-3">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="ph ph-magnifying-glass" style="color:var(--cinema-accent);font-size:1.5rem;"></i>
+        <h2 class="h4 mb-0 fw-bold">搜索电影</h2>
+      </div>
+      <div class="cinema-search mb-3">
+        <i class="ph ph-magnifying-glass search-icon"></i>
+        <input
+          type="text"
+          v-model="searchQuery"
+          @keyup.enter="doSearch"
+          placeholder="输入片名关键词，如 Toy Story..."
+        >
+      </div>
+      <div v-if="searchLoading" class="row g-3">
+        <div v-for="n in 6" :key="n" class="col-6 col-md-4 col-lg-3 col-xl-2">
+          <div class="loading-skeleton" style="aspect-ratio:2/3;"></div>
+        </div>
+      </div>
+      <div v-else-if="searchResults.length" class="row g-3">
+        <div v-for="movie in searchResults" :key="movie.id" class="col-6 col-md-4 col-lg-3 col-xl-2">
+          <movie-card :movie="movie" @click="goToMovie" @rate="onRate"></movie-card>
+        </div>
+      </div>
+      <div v-else-if="searched" class="empty-state py-4">
+        <div class="empty-icon">🔍</div>
+        <h5>未找到相关电影</h5>
+        <p>换个关键词试试吧</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- My Ratings -->
+  <movie-row
+    v-if="user"
+    title="我的评分"
+    :movies="myRatings"
+    :loading="loading.ratings"
+    icon="ph-star"
+    empty-text="暂无评分"
+    empty-subtext="去评分一些电影吧"
+    @movie-click="goToMovie"
+    @movie-rate="onRate"
+    class="fade-in-up"
+  ></movie-row>
+
+  <!-- Persona & Timeline -->
+  <section class="row g-4 mb-5 fade-in-up" v-if="user">
+    <div class="col-lg-6">
+      <div class="glass-strong p-3 rounded-3 h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="ph ph-chart-radar" style="color:var(--cinema-accent);font-size:1.25rem;"></i>
+          <h3 class="h5 mb-0 fw-bold">类型偏好</h3>
+        </div>
+        <div id="chartPersona" style="height:320px;"></div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="glass-strong p-3 rounded-3 h-100">
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <i class="ph ph-calendar" style="color:var(--cinema-accent);font-size:1.25rem;"></i>
+          <h3 class="h5 mb-0 fw-bold">观影时间线</h3>
+        </div>
+        <div id="chartTimeline" style="height:320px;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Guest CTA -->
+  <section v-if="!user" class="text-center py-5 fade-in-up">
+    <div class="glass-strong p-5 rounded-3 d-inline-block">
+      <div class="empty-icon mb-3" style="font-size:3rem;">🎬</div>
+      <h3 class="h4 fw-bold mb-2">登录解锁更多功能</h3>
+      <p class="text-muted mb-3">获取个性化推荐、记录评分、查看用户画像</p>
+      <a href="/login" class="btn btn-cinema btn-lg">立即登录</a>
+    </div>
+  </section>
+</div>
+
+<!-- Quick Rate Modal -->
+<div class="modal fade" id="rateModal" tabindex="-1" ref="rateModal">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title">评分: {% raw %}{{ rateTarget?.title }}{% endraw %}</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <div class="mb-3">
+          <img v-if="rateTarget?.poster" :src="rateTarget.poster" class="rounded-2" style="max-height:200px;">
+        </div>
+        <star-rating :model-value="newRating" :max="5" @rate="newRating = $event"></star-rating>
+        <p class="text-muted mt-2">{% raw %}{{ newRating ? newRating + ' 星' : '点击星星评分' }}{% endraw %}</p>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-cinema-outline" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-cinema" @click="submitRating" :disabled="!newRating">提交评分</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const { createApp } = Vue;
+const { MovieRow, MovieCard, StarRating } = window.CinemaComponents;
+
+/* ---------- Hero App ---------- */
+const heroApp = createApp({
+  data() {
+    return {
+      featured: { id: null, title: '', poster: '', backdrop: '', overview: '', year: null, avg_rating: null }
+    };
+  },
+  async mounted() {
+    try {
+      const movies = await api('/api/movies/popular?limit=5');
+      if (movies && movies.length) {
+        const pick = movies[Math.floor(Math.random() * movies.length)];
+        this.featured = { ...this.featured, ...pick };
+        try {
+          const detail = await api('/api/movies/' + pick.id);
+          this.featured = { ...this.featured, ...detail };
+        } catch (e) { /* ignore detail error */ }
+      }
+    } catch (e) {
+      console.error('Hero load failed', e);
+    }
+  },
+  methods: {
+    formatTitle(title) {
+      return formatMovieTitle(title);
+    },
+    showRateModal(movie) {
+      mainApp.rateTarget = movie;
+      mainApp.newRating = 0;
+      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('rateModal'));
+      modal.show();
+    }
+  }
+}).mount('#heroApp');
+
+/* ---------- Main App ---------- */
+const mainApp = createApp({
+  components: { MovieRow, MovieCard, StarRating },
+  data() {
+    return {
+      user: null,
+      recommendations: [],
+      popular: [],
+      myRatings: [],
+      searchQuery: '',
+      searchResults: [],
+      searchLoading: false,
+      searched: false,
+      loading: { recs: true, popular: true, ratings: true },
+      rateTarget: null,
+      newRating: 0
+    };
+  },
+  async mounted() {
+    await this.checkAuth();
+    this.loadRecommendations();
+    this.loadPopular();
+    if (this.user) {
+      this.loadMyRatings();
+      this.$nextTick(() => {
+        this.loadPersona();
+        this.loadTimeline();
+      });
+    }
+  },
+  methods: {
+    async checkAuth() {
+      try {
+        this.user = await api('/api/me');
+      } catch (e) {
+        this.user = null;
+      }
+    },
+    async loadRecommendations() {
+      this.loading.recs = true;
+      try {
+        const recs = await api('/api/recommendations?n=20');
+        const list = Array.isArray(recs) ? recs : (recs.recommendations || []);
+        this.recommendations = list.map(m => ({
+          ...m,
+          id: m.id || m.movie_id,
+          avg_rating: m.avg_rating !== undefined ? m.avg_rating : m.score
+        }));
+      } catch (e) {
+        this.recommendations = [];
+      } finally {
+        this.loading.recs = false;
+      }
+    },
+    async loadPopular() {
+      this.loading.popular = true;
+      try {
+        const movies = await api('/api/movies/popular?limit=20');
+        this.popular = movies || [];
+      } catch (e) {
+        this.popular = [];
+      } finally {
+        this.loading.popular = false;
+      }
+    },
+    async loadMyRatings() {
+      this.loading.ratings = true;
+      try {
+        const list = await api('/api/my/ratings?limit=20');
+        const ratings = Array.isArray(list) ? list : (list.ratings || []);
+        this.myRatings = ratings.map(r => ({
+          id: r.movie_id,
+          title: r.title,
+          year: r.year,
+          genres: r.genres,
+          user_rating: r.rating
+        }));
+      } catch (e) {
+        this.myRatings = [];
+      } finally {
+        this.loading.ratings = false;
+      }
+    },
+    async doSearch() {
+      const q = this.searchQuery.trim();
+      if (!q) return;
+      this.searchLoading = true;
+      this.searched = true;
+      try {
+        const res = await api('/api/movies?q=' + encodeURIComponent(q));
+        this.searchResults = Array.isArray(res) ? res : (res.movies || []);
+      } catch (e) {
+        showToast('搜索失败', 'error');
+        this.searchResults = [];
+      } finally {
+        this.searchLoading = false;
+      }
+    },
+    goToMovie(movie) {
+      window.location.href = '/movie/' + movie.id;
+    },
+    onRate({ movie, rating }) {
+      this.rateTarget = movie;
+      this.newRating = rating || 0;
+      const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('rateModal'));
+      modal.show();
+    },
+    async submitRating() {
+      if (!this.rateTarget || !this.newRating) return;
+      try {
+        await api('/api/ratings', {
+          method: 'POST',
+          body: { movie_id: this.rateTarget.id, rating: this.newRating }
+        });
+        showToast('评分成功！', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('rateModal')).hide();
+        if (this.user) {
+          this.loadMyRatings();
+          this.loadRecommendations();
+        }
+      } catch (e) {
+        showToast(e.message || '评分失败', 'error');
+      }
+    },
+    loadPersona() {
+      const el = document.getElementById('chartPersona');
+      if (!el) return;
+      const chart = echarts.init(el, 'dark');
+      api('/api/my/persona').then(data => {
+        const scores = data.genre_scores || {};
+        const genres = Object.keys(scores);
+        const values = Object.values(scores);
+        if (!genres.length) throw new Error('empty');
+        chart.setOption({
+          backgroundColor: 'transparent',
+          tooltip: {},
+          radar: {
+            indicator: genres.map(g => ({ name: g, max: 1 })),
+            axisName: { color: '#a3a3a3', fontSize: 11 },
+            splitArea: { areaStyle: { color: ['rgba(255,255,255,0.02)', 'rgba(255,255,255,0.05)'] } },
+            axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+            splitLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } }
+          },
+          series: [{
+            type: 'radar',
+            data: [{
+              value: values,
+              name: '我的偏好',
+              areaStyle: { color: 'rgba(229,160,13,0.25)' },
+              lineStyle: { color: '#e5a00d', width: 2 },
+              itemStyle: { color: '#e5a00d' }
+            }]
+          }]
+        });
+      }).catch(() => {
+        el.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+          <i class="ph ph-chart-radar" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+          <span>评分更多电影来生成画像</span>
+        </div>`;
+      });
+    },
+    loadTimeline() {
+      const el = document.getElementById('chartTimeline');
+      if (!el) return;
+      const chart = echarts.init(el, 'dark');
+      api('/api/my/timeline').then(data => {
+        const timeline = data.timeline || [];
+        if (!timeline.length) throw new Error('empty');
+        const months = timeline.map(t => t.month);
+        const counts = timeline.map(t => t.count);
+        const avgs = timeline.map(t => t.avg_rating);
+        chart.setOption({
+          backgroundColor: 'transparent',
+          tooltip: { trigger: 'axis' },
+          legend: { data: ['评分次数', '平均评分'], textStyle: { color: '#a3a3a3' }, bottom: 0 },
+          grid: { left: '3%', right: '4%', bottom: '15%', top: '10%', containLabel: true },
+          xAxis: { type: 'category', data: months, axisLine: { lineStyle: { color: '#444' } }, axisLabel: { color: '#888' } },
+          yAxis: [
+            { type: 'value', name: '次数', axisLine: { lineStyle: { color: '#444' } }, splitLine: { lineStyle: { color: '#222' } }, axisLabel: { color: '#888' } },
+            { type: 'value', name: '均分', min: 0, max: 5, axisLine: { lineStyle: { color: '#444' } }, splitLine: { show: false }, axisLabel: { color: '#888' } }
+          ],
+          series: [
+            { name: '评分次数', type: 'bar', data: counts, itemStyle: { color: '#e5a00d', borderRadius: [4, 4, 0, 0] } },
+            { name: '平均评分', type: 'line', yAxisIndex: 1, data: avgs, itemStyle: { color: '#3b82f6' }, smooth: true, symbol: 'circle', symbolSize: 6 }
+          ]
+        });
+      }).catch(() => {
+        el.innerHTML = `<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted">
+          <i class="ph ph-calendar" style="font-size:2rem;margin-bottom:0.5rem;"></i>
+          <span>暂无时间线数据</span>
+        </div>`;
+      });
+    }
+  }
+}).mount('#mainApp');
+</script>
+{% endblock %}
