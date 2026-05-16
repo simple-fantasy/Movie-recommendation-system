@@ -50,14 +50,16 @@ const MovieCard = {
   components: { StarRating },
   template: `
     <div class="movie-card" @click="onCardClick">
-      <img :src="posterUrl" :alt="displayTitle" loading="lazy"
-           onerror="this.src='/static/img/poster-placeholder.svg'">
+      <img v-if="showPoster" :src="posterUrl" :alt="displayTitle" loading="lazy"
+           @error="onPosterError">
+      <div v-else class="poster-gradient" :style="gradStyle">
+        <span class="poster-initial">{{ initial }}</span>
+      </div>
       <div class="overlay">
         <div class="title">{{ displayTitle }}</div>
         <div class="meta">
           <span v-if="movie.year">{{ movie.year }}</span>
-          <span v-if="movie.avg_rating" style="color: var(--cinema-accent)">★ {{ movie.avg_rating.toFixed(1) }}</span>
-          <span v-else-if="movie.rating" style="color: var(--cinema-accent)">★ {{ movie.rating.toFixed(1) }}</span>
+          <span v-if="ratingDisplay" style="color: var(--cinema-accent)">★ {{ ratingDisplay }}</span>
         </div>
         <star-rating v-if="showRating && movie.user_rating !== undefined"
                      :model-value="Math.round(movie.user_rating)"
@@ -75,17 +77,37 @@ const MovieCard = {
       </div>
     </div>
   `,
+  data() {
+    return { posterFailed: false };
+  },
   computed: {
     displayTitle() {
       return formatMovieTitle(this.movie.title || this.movie.name || '未知电影');
     },
     posterUrl() {
-      return this.movie.poster || this.movie.poster_url || '/static/img/poster-placeholder.jpg';
+      return this.movie.poster || this.movie.poster_url || null;
+    },
+    showPoster() {
+      return !this.posterFailed && hasValidPoster(this.posterUrl);
+    },
+    gradStyle() {
+      return posterGradientStyle(this.displayTitle);
+    },
+    initial() {
+      return posterInitial(this.displayTitle);
+    },
+    ratingDisplay() {
+      const val = this.movie.avg_rating ?? this.movie.score ?? this.movie.rating;
+      if (val == null || isNaN(val)) return null;
+      return Number(val).toFixed(1);
     }
   },
   methods: {
     onCardClick() {
       this.$emit('click', this.movie);
+    },
+    onPosterError() {
+      this.posterFailed = true;
     },
     goToDetail() {
       window.location.href = '/movie/' + this.movie.id;

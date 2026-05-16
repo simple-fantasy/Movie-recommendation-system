@@ -1,220 +1,283 @@
 {% extends "base.html" %}
 {% block title %}智能推荐 - CineMatch{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* ── RecommendationCard styles ── */
+  .rec-card {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--cinema-surface);
+    border: 1px solid var(--cinema-border);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s;
+  }
+  .rec-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+  }
+
+  /* Rank badge */
+  .rec-rank {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 5;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem; font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .rec-rank-1 { background: linear-gradient(135deg, #e5a00d, #f5b830); color: #0a0a0a; }
+  .rec-rank-2 { background: linear-gradient(135deg, #a3a3a3, #c0c0c0); color: #0a0a0a; }
+  .rec-rank-3 { background: linear-gradient(135deg, #cd7f32, #d48f50); color: #0a0a0a; }
+
+  /* Poster */
+  .rec-poster {
+    position: relative;
+    aspect-ratio: 2/3;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .rec-poster img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: transform 0.35s ease;
+  }
+  .rec-card:hover .rec-poster img {
+    transform: scale(1.06);
+  }
+
+  /* Hover overlay */
+  .rec-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .rec-card:hover .rec-overlay {
+    opacity: 1;
+  }
+
+  .rec-action-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .rec-action-btn:hover {
+    background: var(--cinema-accent);
+    color: #0a0a0a;
+    border-color: var(--cinema-accent);
+    transform: scale(1.1);
+  }
+  .rec-action-btn.active {
+    background: var(--cinema-accent);
+    color: #0a0a0a;
+    border-color: var(--cinema-accent);
+  }
+
+  /* Info */
+  .rec-info {
+    padding: 0.75rem;
+  }
+  .rec-title {
+    font-size: 0.9rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer; margin: 0 0 0.35rem;
+    color: var(--cinema-text);
+    transition: color 0.2s;
+  }
+  .rec-title:hover { color: var(--cinema-accent); }
+  .rec-meta {
+    display: flex; align-items: center; gap: 0.75rem;
+    font-size: 0.78rem; color: var(--cinema-text-secondary);
+    margin-bottom: 0.35rem;
+  }
+  .rec-rating {
+    color: var(--cinema-accent); font-weight: 600;
+    display: inline-flex; align-items: center; gap: 0.15rem;
+  }
+  .rec-genres {
+    display: flex; flex-wrap: wrap; gap: 0.3rem;
+  }
+  .rec-genre-tag {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.06);
+    color: var(--cinema-text-secondary);
+    border: 1px solid var(--cinema-border);
+  }
+
+  /* Why tooltip */
+  .rec-why {
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid var(--cinema-border);
+    font-size: 0.72rem; color: var(--cinema-text-muted);
+    display: flex; align-items: flex-start; gap: 0.35rem;
+    line-height: 1.4;
+    background: var(--cinema-surface-elevated);
+    border-radius: 0 0 12px 12px;
+  }
+  .rec-why-loading {
+    opacity: 0.6;
+  }
+
+  /* Filter bar */
+  .filter-bar {
+    background: var(--cinema-surface);
+    border: 1px solid var(--cinema-border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<!-- Hero -->
-<section class="position-relative overflow-hidden" style="padding: 4rem 0 2rem; margin-top: -60px; padding-top: calc(4rem + 60px);">
-  <div class="position-absolute inset-0" style="background: radial-gradient(ellipse at 50% 0%, rgba(229,160,13,0.08) 0%, transparent 60%); top:0; left:0; right:0; bottom:0;"></div>
-  <div class="container position-relative">
-    <div class="text-center mb-4">
-      <div class="d-inline-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-pill" style="background: rgba(229,160,13,0.1); border: 1px solid rgba(229,160,13,0.2);">
-        <i class="ph ph-sparkle" style="color: var(--cinema-accent);"></i>
-        <span style="color: var(--cinema-accent); font-weight: 500; font-size: 0.875rem;">AI 驱动的个性化推荐</span>
+<div id="recApp">
+  <!-- Header -->
+  <section class="position-relative overflow-hidden" style="padding: 3rem 0 1.5rem; margin-top: -60px; padding-top: calc(3rem + 60px);">
+    <div class="position-absolute inset-0" style="background: radial-gradient(ellipse at 50% 0%, rgba(229,160,13,0.08) 0%, transparent 60%); top:0; left:0; right:0; bottom:0;"></div>
+    <div class="container position-relative">
+      <div class="text-center mb-3">
+        <div class="d-inline-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-pill" style="background: rgba(229,160,13,0.1); border: 1px solid rgba(229,160,13,0.2);">
+          <i class="ph ph-sparkle" style="color: var(--cinema-accent);"></i>
+          <span style="color: var(--cinema-accent); font-weight: 500; font-size: 0.875rem;">AI 驱动的个性化推荐</span>
+        </div>
+        <h1 class="display-5 fw-bold mb-2" style="font-family:'Playfair Display',serif;">发现你的下一部心动电影</h1>
+        <p class="text-muted mx-auto" style="max-width: 560px;">基于 ItemCF、NCF 神经网络与混合策略，为你量身推荐。评分越多，推荐越准。</p>
       </div>
-      <h1 class="display-5 fw-bold mb-3" style="font-family:'Playfair Display',serif;">发现你的下一部心动电影</h1>
-      <p class="text-muted mx-auto" style="max-width: 560px;">基于 ItemCF、NCF 神经网络与混合策略，为你量身推荐。评分越多，推荐越准。</p>
+
+      <!-- Strategy Selector -->
+      <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+        <button
+          v-for="s in strategies" :key="s.key"
+          class="btn d-inline-flex align-items-center gap-2 px-4 py-2"
+          :class="currentStrategy === s.key ? 'btn-cinema' : 'btn-cinema-outline'"
+          @click="switchStrategy(s.key)"
+          :disabled="!!retryTimer"
+        >
+          <i :class="'ph ' + s.icon" style="font-size:1.1rem;"></i>
+          <span v-text="s.label"></span>
+        </button>
+      </div>
+
+      <!-- Filter toggle -->
+      <div class="text-center mb-3" v-if="allMovies.length">
+        <button class="btn btn-sm btn-cinema-outline" @click="showFilters = !showFilters">
+          <i class="ph ph-faders"></i>
+          <span v-text="showFilters ? '收起筛选' : '筛选'"></span>
+        </button>
+      </div>
+
+      <!-- Filter bar -->
+      <div v-if="showFilters && availableGenres.length" class="filter-bar mb-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span class="text-muted small me-1">类型:</span>
+          <button
+            v-for="g in availableGenres" :key="g"
+            class="btn btn-sm"
+            :class="filterGenre === g ? 'btn-cinema' : 'btn-cinema-outline'"
+            @click="selectFilterGenre(g)"
+            v-text="formatGenre(g)"
+            style="font-size:0.75rem;padding:0.15rem 0.6rem;"
+          ></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Content Area -->
+  <div class="container pb-5">
+    <!-- Loading -->
+    <div v-if="loading" class="row g-4">
+      <div v-for="n in 8" :key="n" class="col-6 col-md-4 col-lg-3">
+        <div class="loading-skeleton" style="aspect-ratio:2/3;border-radius:12px;"></div>
+      </div>
     </div>
 
-    <!-- Strategy Selector -->
-    <div class="d-flex flex-wrap justify-content-center gap-2 mb-4" id="strategyApp">
-      <button
-        v-for="s in strategies" :key="s.key"
-        class="btn d-inline-flex align-items-center gap-2 px-4 py-2"
-        :class="current === s.key ? 'btn-cinema' : 'btn-cinema-outline'"
-        @click="switchStrategy(s.key)"
-      >
-        <i :class="'ph ' + s.icon" style="font-size:1.1rem;"></i>
-        <span>{{ s.label }}</span>
-        <small v-if="s.badge" class="ms-1" style="opacity:0.8;">{{ s.badge }}</small>
+    <!-- Model loading / retry state -->
+    <div v-else-if="errorCode === 'MODEL_LOADING'" class="text-center py-5">
+      <div class="glass-strong p-5 rounded-3 d-inline-block">
+        <div class="spinner-border mb-3" role="status" style="color: var(--cinema-accent); width: 3rem; height: 3rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <h3 class="h4 fw-bold mt-2">模型加载中</h3>
+        <p class="text-muted" v-text="errorMessage"></p>
+        <p class="text-muted" v-if="retrySeconds > 0">
+          {% raw %}{{ retrySeconds }}{% endraw %} 秒后自动重试...
+        </p>
+        <button class="btn btn-cinema" @click="loadRecommendations">立即重试</button>
+      </div>
+    </div>
+
+    <!-- Model not available -->
+    <div v-else-if="errorCode === 'MODEL_NOT_AVAILABLE'" class="text-center py-5">
+      <div class="glass-strong p-5 rounded-3 d-inline-block">
+        <div style="font-size: 3rem;">🤖</div>
+        <h3 class="h4 fw-bold mt-3">推荐模型暂不可用</h3>
+        <p class="text-muted" v-text="errorMessage"></p>
+      </div>
+    </div>
+
+    <!-- General error -->
+    <div v-else-if="error" class="text-center py-5">
+      <div class="glass-strong p-5 rounded-3 d-inline-block">
+        <div style="font-size: 3rem;">⚠️</div>
+        <h3 class="h4 fw-bold mt-3">加载失败</h3>
+        <p class="text-muted">推荐服务暂时不可用，请稍后重试</p>
+        <button class="btn btn-cinema" @click="loadRecommendations">重新加载</button>
+      </div>
+    </div>
+
+    <!-- Results Grid -->
+    <div v-else-if="movies.length" class="row g-4">
+      <div v-for="(movie, idx) in movies" :key="movie.id" class="col-6 col-md-4 col-lg-3 fade-in-up">
+        <recommendation-card
+          :movie="movie"
+          :rank="idx + 1"
+          :feedback-state="feedback[movie.id] || null"
+          :why-text="whyCache[movie.id] || null"
+          :why-loading="!!whyLoading[movie.id]"
+          @click="goToMovie"
+          @feedback="sendFeedback($event.movieId, $event.type)"
+          @hover-why="fetchWhy"
+        ></recommendation-card>
+      </div>
+    </div>
+
+    <!-- Empty / Guest CTA -->
+    <div v-else-if="!loading && !error && !errorCode" class="text-center py-5">
+      <div class="glass-strong p-5 rounded-3 d-inline-block">
+        <div style="font-size: 3rem;">🎬</div>
+        <h3 class="h4 fw-bold mt-3" v-text="user ? '暂无推荐结果' : '登录获取个性化推荐'"></h3>
+        <p class="text-muted" v-text="user ? '尝试切换推荐策略，或去评分更多电影。' : '登录并评分电影后，系统将为你生成专属推荐。'"></p>
+        <a v-if="!user" href="/login" class="btn btn-cinema btn-lg">立即登录</a>
+        <a v-else href="/app" class="btn btn-cinema">去评分</a>
+      </div>
+    </div>
+
+    <!-- Load More -->
+    <div v-if="hasMore && !loading && movies.length" class="text-center mt-4">
+      <button class="btn btn-cinema-outline btn-lg px-5" @click="loadMore">
+        <i class="ph ph-caret-down"></i> 加载更多
+        <span class="ms-1 text-muted small" v-text="'(' + movies.length + '/' + (filterGenre ? allMovies.filter(m => String(m.genres||'').toLowerCase().includes(filterGenre.toLowerCase())).length : allMovies.length) + ')'"></span>
       </button>
-    </div>
-  </div>
-</section>
-
-<!-- Recommendations Content -->
-<div class="container pb-5" id="recApp">
-  <!-- Loading -->
-  <div v-if="loading" class="row g-3">
-    <div v-for="n in 8" :key="n" class="col-12 col-md-6 col-lg-4 col-xl-3">
-      <div class="loading-skeleton" style="height: 280px; border-radius: 12px;"></div>
-    </div>
-  </div>
-
-  <!-- Results Grid -->
-  <div v-else-if="movies.length" class="row g-4">
-    <div v-for="(movie, idx) in movies" :key="movie.id" class="col-12 col-md-6 col-lg-4 col-xl-3 fade-in-up">
-      <div class="h-100">
-        <!-- Rank Badge -->
-        <div class="d-flex align-items-center gap-2 mb-2">
-          <span class="badge" :style="rankStyle(idx)">#{% raw %}{{ idx + 1 }}{% endraw %}</span>
-          <span v-if="movie.strategy" class="badge" :class="'bg-' + strategyColor(movie.strategy)">
-            {% raw %}{{ strategyLabel(movie.strategy) }}{% endraw %}
-          </span>
-          <span v-if="movie.score" class="ms-auto text-accent fw-bold" style="color: var(--cinema-accent);">
-            ★ {% raw %}{{ movie.score.toFixed(2) }}{% endraw %}
-          </span>
-        </div>
-
-        <movie-card :movie="movie" @click="goToMovie"></movie-card>
-
-        <!-- Reasoning -->
-        <div v-if="movie.reason || (movie.because && movie.because.length)" class="mt-2 p-2 rounded-2" style="background: var(--cinema-surface); border: 1px solid var(--cinema-border);">
-          <div class="d-flex align-items-center gap-1 mb-1">
-            <i class="ph ph-lightbulb" style="color: var(--cinema-accent); font-size: 0.8rem;"></i>
-            <small class="text-muted">推荐理由</small>
-          </div>
-          <div v-if="movie.reason" class="small text-secondary mb-1">{{ movie.reason }}</div>
-          <div v-if="movie.because && movie.because.length" class="d-flex flex-wrap gap-1">
-            <span v-for="b in movie.because.slice(0,3)" :key="b.movie_id" class="badge bg-dark text-light border" style="font-size: 0.7rem; font-weight: 400;">
-              因为看过 «{% raw %}{{ formatTitle(b.title) }}{% endraw %}»
-            </span>
-          </div>
-        </div>
-
-        <!-- Feedback -->
-        <div class="d-flex gap-2 mt-2">
-          <button class="btn btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1"
-                  :class="feedback[movie.id] === 'like' ? 'btn-success' : 'btn-cinema-outline'"
-                  :disabled="!!feedback[movie.id]"
-                  @click="sendFeedback(movie.id, 'like')">
-            <i class="ph ph-thumbs-up"></i> 有用
-          </button>
-          <button class="btn btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1"
-                  :class="feedback[movie.id] === 'dislike' ? 'btn-danger' : 'btn-cinema-outline'"
-                  :disabled="!!feedback[movie.id]"
-                  @click="sendFeedback(movie.id, 'dislike')">
-            <i class="ph ph-thumbs-down"></i> 不相关
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Empty / Login CTA -->
-  <div v-else class="text-center py-5">
-    <div class="glass-strong p-5 rounded-3 d-inline-block">
-      <div style="font-size: 3rem;">🎬</div>
-      <h3 class="h4 fw-bold mt-3">{% raw %}{{ user ? '暂无推荐结果' : '登录获取个性化推荐' }}{% endraw %}</h3>
-      <p class="text-muted">{% raw %}{{ user ? '尝试切换推荐策略，或去评分更多电影。' : '登录并评分电影后，系统将为你生成专属推荐。' }}{% endraw %}</p>
-      <a v-if="!user" href="/login" class="btn btn-cinema">立即登录</a>
-      <a v-else href="/app" class="btn btn-cinema">去评分</a>
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script>
-const { createApp } = Vue;
-const { MovieCard } = window.CinemaComponents;
-
-/* ---------- Strategy Selector ---------- */
-const strategyApp = createApp({
-  data() {
-    return {
-      current: 'popular',
-      strategies: [
-        { key: 'popular', label: '热门高分', icon: 'ph-fire', badge: '' },
-        { key: 'itemcf', label: 'ItemCF', icon: 'ph-target', badge: '协同过滤' },
-        { key: 'ncf', label: 'NCF', icon: 'ph-brain', badge: '神经网络' },
-        { key: 'hybrid', label: '混合推荐', icon: 'ph-lightning', badge: '综合' },
-      ]
-    };
-  },
-  methods: {
-    switchStrategy(key) {
-      this.current = key;
-      window.dispatchEvent(new CustomEvent('strategy-change', { detail: key }));
-    }
-  }
-}).mount('#strategyApp');
-
-/* ---------- Recommendations App ---------- */
-const recApp = createApp({
-  components: { MovieCard },
-  data() {
-    return {
-      user: null,
-      movies: [],
-      loading: true,
-      currentStrategy: 'popular',
-      feedback: {}
-    };
-  },
-  async mounted() {
-    await this.checkAuth();
-    this.loadRecommendations();
-    window.addEventListener('strategy-change', (e) => {
-      this.currentStrategy = e.detail;
-      this.loadRecommendations();
-    });
-  },
-  methods: {
-    async checkAuth() {
-      try { this.user = await api('/api/me'); } catch (e) { this.user = null; }
-    },
-    async loadRecommendations() {
-      this.loading = true;
-      this.movies = [];
-      try {
-        const params = new URLSearchParams();
-        params.set('n', '24');
-        if (this.currentStrategy !== 'popular') {
-          params.set('strategy', this.currentStrategy);
-        }
-        const endpoint = this.currentStrategy === 'popular'
-          ? '/api/movies/popular?limit=24'
-          : '/api/recommendations?' + params.toString();
-        const data = await api(endpoint);
-        let list = Array.isArray(data) ? data : (data.recommendations || []);
-        // 统一字段名：后端可能返回 movie_id，组件期望 id；score 映射为 avg_rating 供组件显示
-        list = list.map(m => ({
-          ...m,
-          id: m.id || m.movie_id,
-          avg_rating: m.avg_rating !== undefined ? m.avg_rating : m.score,
-          strategy: m.strategy || this.currentStrategy
-        }));
-        this.movies = list;
-      } catch (e) {
-        console.error(e);
-        this.movies = [];
-      } finally {
-        this.loading = false;
-      }
-    },
-    goToMovie(movie) {
-      window.location.href = '/movie/' + movie.id;
-    },
-    formatTitle(title) {
-      return formatMovieTitle(title);
-    },
-    rankStyle(idx) {
-      if (idx === 0) return 'background: linear-gradient(135deg, #e5a00d, #f5b830); color: #0a0a0a;';
-      if (idx === 1) return 'background: linear-gradient(135deg, #a3a3a3, #c0c0c0); color: #0a0a0a;';
-      if (idx === 2) return 'background: linear-gradient(135deg, #cd7f32, #d48f50); color: #0a0a0a;';
-      return 'background: var(--cinema-surface-elevated); color: var(--cinema-text-secondary); border: 1px solid var(--cinema-border);';
-    },
-    strategyColor(s) {
-      const map = { itemcf: 'warning', ncf: 'info', hybrid: 'accent', popular: 'secondary' };
-      return map[s] || 'secondary';
-    },
-    strategyLabel(s) {
-      const map = { itemcf: 'ItemCF', ncf: 'NCF', hybrid: '混合', popular: '热门' };
-      return map[s] || s;
-    },
-    async sendFeedback(movieId, type) {
-      try {
-        await api('/api/recommendations/feedback', {
-          method: 'POST',
-          body: { movie_id: movieId, feedback: type }
-        });
-        this.feedback = { ...this.feedback, [movieId]: type };
-        showToast(type === 'like' ? '感谢反馈！' : '已记录，将优化推荐', 'success');
-      } catch (e) {
-        showToast('反馈提交失败', 'error');
-      }
-    }
-  }
-}).mount('#recApp');
-</script>
+<script src="/static/js/page-recommendations.js" defer></script>
 {% endblock %}

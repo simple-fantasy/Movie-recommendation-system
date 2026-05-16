@@ -23,6 +23,12 @@ function formatGenre(genre) {
   return GENRE_MAP[genre] || genre;
 }
 
+function formatGenres(genres) {
+  if (!genres) return [];
+  if (Array.isArray(genres)) return genres.map(g => formatGenre(g.trim()));
+  return String(genres).split('|').map(g => formatGenre(g.trim()));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const searchInput = document.getElementById('search-query');
   const searchForm = document.getElementById('search-form');
@@ -311,19 +317,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (moviesGrid) {
-      moviesGrid.innerHTML = items.map((movie) => `
+      moviesGrid.innerHTML = items.map((movie) => {
+          const poster = movie.poster_url || movie.poster;
+          const title = escapeHtml(movie.title);
+          const posterHTML = hasValidPoster(poster)
+            ? `<img src="${poster}" alt="${title}" class="movie-poster" loading="lazy" onerror="this.replaceWith(this.nextElementSibling)" />`
+            : '';
+          const fallbackHTML = posterHTML
+            ? `<div class="poster-gradient" style="display:none;${posterGradientStyle(movie.title)}"><span class="poster-initial">${posterInitial(movie.title)}</span></div>`
+            : `<div class="poster-gradient" style="${posterGradientStyle(movie.title)}"><span class="poster-initial">${posterInitial(movie.title)}</span></div>`;
+          return `
         <div class="movie-card" data-movie-id="${movie.id}">
-          <img src="${movie.poster_url || '/static/images/no-poster.jpg'}" alt="${escapeHtml(movie.title)}" class="movie-poster" loading="lazy" />
+          ${posterHTML}${fallbackHTML}
           <div class="movie-info">
             <h3 class="movie-title">${escapeHtml(movie.title)}</h3>
             <div class="movie-meta">
               <span class="movie-year">${escapeHtml(movie.year || '未知')}</span>
               <div class="movie-rating">⭐ ${escapeHtml(movie.avg_rating ? movie.avg_rating.toFixed(1) : 'N/A')}</div>
             </div>
-            <div class="movie-genres">${(movie.genres || '').split('|').slice(0, 3).map((genre) => `<span class="genre-tag">${escapeHtml(formatGenre(genre.trim()))}</span>`).join('')}</div>
+            <div class="movie-genres">${formatGenres(movie.genres).slice(0, 3).map((genre) => `<span class="genre-tag">${escapeHtml(genre)}</span>`).join('')}</div>
           </div>
         </div>
-      `).join('');
+      `;}).join('');
     }
     renderPagination(data.pagination || {});
   }

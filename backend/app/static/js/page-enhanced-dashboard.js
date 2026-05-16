@@ -394,16 +394,15 @@ window.addEventListener('resize', () => {
   Object.values(charts).forEach(chart => chart.resize());
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  const refreshButton = document.getElementById('refresh-dashboard-btn');
-  const exportButton = document.getElementById('export-dashboard-btn');
-
-  if (refreshButton) {
-    refreshButton.addEventListener('click', refreshAllData);
-  }
-  if (exportButton) {
-    exportButton.addEventListener('click', exportReport);
-  }
-
+function initDashboard() {
+  var refreshButton = document.getElementById('refresh-dashboard-btn');
+  var exportButton = document.getElementById('export-dashboard-btn');
+  if (refreshButton) refreshButton.addEventListener('click', refreshAllData);
+  if (exportButton) exportButton.addEventListener('click', exportReport);
   initializeDashboard();
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+  initDashboard();
+}

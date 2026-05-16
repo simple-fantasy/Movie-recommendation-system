@@ -164,6 +164,16 @@ class Rating(db.Model):
         db.Index("idx_ratings_movie_rating", "movie_id", "rating"),
     )
 
+    def to_dict(self) -> dict:
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'movie_id': self.movie_id,
+            'rating': self.rating,
+            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M') if self.timestamp else None,
+            'movie': self.movie.to_dict() if self.movie else None
+        }
+
 
 class MovieSimilarity(db.Model):
     __tablename__ = "movie_similarity"

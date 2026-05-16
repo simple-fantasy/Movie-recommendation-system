@@ -6,6 +6,8 @@ import math
 from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
 
+from sqlalchemy.orm import selectinload
+
 from backend.app import db
 from backend.app.models import Rating, UserCollection, Review, Movie, UserProfile
 
@@ -24,11 +26,13 @@ class ProfileService:
         Returns:
             UserProfile对象
         """
-        # 获取用户的所有评分
-        ratings = Rating.query.filter_by(user_id=user_id).all()
-        
-        # 获取用户的收藏
-        collections = UserCollection.query.filter_by(user_id=user_id).all()
+        # 获取用户的所有评分（预加载movie避免N+1）
+        ratings = Rating.query.filter_by(user_id=user_id)\
+            .options(selectinload(Rating.movie)).all()
+
+        # 获取用户的收藏（预加载movie避免N+1）
+        collections = UserCollection.query.filter_by(user_id=user_id)\
+            .options(selectinload(UserCollection.movie)).all()
         
         # 获取用户的评论
         reviews = Review.query.filter_by(user_id=user_id).all()

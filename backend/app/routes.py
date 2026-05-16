@@ -4,12 +4,13 @@ from datetime import datetime
 import json
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, session
 from flask_login import current_user, login_required, login_user, logout_user
 
 from backend.app import cache, db
-from backend.app.models import (Movie, MovieSimilarity, Rating, RecommendationFeedback, User, Review, ReviewLike, 
-                               UserCollection, WatchLink, Notification, MovieChart, UserProfile)
+from backend.app.models import (Movie, MovieSimilarity, Rating, RecommendationFeedback, User, Review, ReviewLike,
+                               UserCollection, WatchLink, Notification, MovieChart, ChartItem, UserProfile,
+                               MovieList, MovieListItem, MovieListLike, MovieListComment)
 from backend.app.ncf_engine import ncf_engine
 from backend.app.services import ProfileService
 
@@ -251,8 +252,9 @@ def login():
     if not user.is_active:
         return jsonify({"error": "账户已被禁用"}), 403
 
-    # 执行登录
-    login_user(user)
+    # 执行登录（remember=True 持久化cookie，session.permanent 使PERMANENT_SESSION_LIFETIME生效）
+    login_user(user, remember=True)
+    session.permanent = True
     
     # 更新登录统计
     user.last_login = datetime.utcnow()
@@ -348,20 +350,19 @@ def list_movies():
 @cache.cached(timeout=300, query_string=True)  # 缓存5分钟，考虑查询参数
 def popular_movies():
     limit = min(int(request.args.get("limit") or 20), 100)
-    min_count = int(request.args.get("min_count") or 50)
+    min_count = int(request.args.get("min_count") or 0)
     rows = (
         db.session.query(
             Movie,
-            db.func.avg(Rating.rating).label("avg_rating"),
+            db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"),
             db.func.count(Rating.id).label("rating_count"),
         )
-        .join(Rating, Rating.movie_id == Movie.id)
+        .outerjoin(Rating, Rating.movie_id == Movie.id)
         .group_by(Movie.id)
-        .having(db.func.count(Rating.id) >= min_count)
-        .order_by(db.desc("avg_rating"), db.desc("rating_count"))
-        .limit(limit)
-        .all()
     )
+    if min_count > 0:
+        rows = rows.having(db.func.count(Rating.id) >= min_count)
+    rows = rows.order_by(db.desc("avg_rating"), db.desc("rating_count")).limit(limit).all()
     return jsonify(
         [
             {
@@ -547,7 +548,7 @@ def _format_recommendations(
     reason: str,
     reranked: bool = False,
 ) -> list[dict]:
-    """Format recommendations with explanations."""
+    """Format recommendations with explanations. Returns normalized fields."""
     target_ids = [mid for mid, _ in ranked]
     seed_ids = [r.movie_id for r in user_ratings]
     movies = Movie.query.filter(Movie.id.in_(target_ids + seed_ids)).all()
@@ -578,11 +579,14 @@ def _format_recommendations(
 
         result.append(
             {
-                "movie_id": m.id,
+                "id": m.id,
                 "title": m.title,
                 "year": m.year,
                 "genres": m.genres,
-                "score": float(score),
+                "avg_rating": float(score),
+                "poster": m.poster_url,
+                "backdrop": m.backdrop_url,
+                "overview": m.description,
                 "reason": rec_reason,
                 "because": because if because else None,
             }
@@ -591,28 +595,42 @@ def _format_recommendations(
 
 
 def _get_popular_fallback(top_n: int) -> list[dict]:
-    """Return popular movies as fallback for cold users."""
+    """Return popular movies as fallback for cold users. Returns normalized fields."""
     movies = (
-        db.session.query(Movie, db.func.avg(Rating.rating).label("avg_rating"), db.func.count(Rating.id).label("cnt"))
-        .join(Rating, Rating.movie_id == Movie.id)
+        db.session.query(Movie, db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"), db.func.count(Rating.id).label("cnt"))
+        .outerjoin(Rating, Rating.movie_id == Movie.id)
         .group_by(Movie.id)
-        .having(db.func.count(Rating.id) >= 10)
         .order_by(db.desc("avg_rating"), db.desc("cnt"))
         .limit(top_n)
         .all()
     )
     return [
-        {"movie_id": m.id, "title": m.title, "year": m.year, "genres": m.genres, "score": float(avg), "reason": "popular", "because": None}
-        for (m, avg, _cnt) in movies
+        {
+            "id": m.id,
+            "title": m.title,
+            "year": m.year,
+            "genres": m.genres,
+            "avg_rating": float(avg),
+            "rating_count": int(cnt),
+            "poster": m.poster_url,
+            "backdrop": m.backdrop_url,
+            "overview": m.description,
+            "reason": "popular",
+            "because": None,
+        }
+        for (m, avg, cnt) in movies
     ]
 
 
 @bp.get("/api/recommendations")
-@login_required
 def recommend():
     top_n = min(int(request.args.get("n") or 10), 50)
     strategy = request.args.get("strategy", "itemcf")  # itemcf | ncf | hybrid
     recall_k = min(int(request.args.get("recall_k") or 100), 500)  # for hybrid mode
+
+    # Anonymous users: return popular movies as fallback
+    if not current_user.is_authenticated:
+        return jsonify(_get_popular_fallback(top_n))
 
     user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
 
@@ -1630,7 +1648,15 @@ def export_user_data():
             return export_to_csv(export_data, f'user_data_{current_user.username}.csv')
         else:
             # JSON格式导出
-            return jsonify(export_data)
+            from flask import current_app
+            response = current_app.response_class(
+                json.dumps(export_data, ensure_ascii=False, indent=2),
+                mimetype='application/json',
+                headers={
+                    'Content-Disposition': f'attachment; filename=user_data_{current_user.username}.json'
+                }
+            )
+            return response
             
     except Exception as e:
         return jsonify({"error": "数据导出失败", "details": str(e)}), 500
@@ -2068,10 +2094,11 @@ def system_health_metrics():
 @cache.cached(timeout=180, query_string=True)
 def advanced_search():
     """高级搜索 - 独立API，不影响现有搜索"""
+    from sqlalchemy import func
     try:
         import time
         start_time = time.time()
-        
+
         query = request.args.get('q', '').strip()
         genre = request.args.get('genre', '').strip()
         year_min = request.args.get('year_min', type=int)
@@ -2744,11 +2771,15 @@ def get_public_movie_lists():
         per_page = request.args.get('per_page', 20, type=int)
         search = request.args.get('search', '').strip()
         
-        query = MovieList.query.filter_by(is_public=True)
-        
+        from sqlalchemy.orm import joinedload, selectinload
+
+        query = MovieList.query.filter_by(is_public=True)\
+            .options(joinedload(MovieList.user))\
+            .options(selectinload(MovieList.items).joinedload(MovieListItem.movie))
+
         if search:
             query = query.filter(MovieList.name.ilike(f'%{search}%'))
-        
+
         query = query.order_by(MovieList.created_at.desc())
         pagination = query.paginate(page=page, per_page=per_page, error_out=False)
         

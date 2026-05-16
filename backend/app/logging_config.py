@@ -125,89 +125,66 @@ def get_logger(name: str = None):
         return logging.getLogger(name)
 
 
-def log_request(logger, method: str, path: str, user_id: int = None, 
+def log_request(logger, method: str, path: str, user_id: int = None,
                status_code: int = None, duration: float = None):
-    """
-    记录请求日志
-    
-    Args:
-        logger: 日志记录器
-        method: HTTP方法
-        path: 请求路径
-        user_id: 用户ID
-        status_code: 响应状态码
-        duration: 请求耗时（秒）
-    """
-    logger.info(
-        "HTTP Request",
-        method=method,
-        path=path,
-        user_id=user_id,
-        status_code=status_code,
-        duration_seconds=duration
-    )
+    if STRUCTLOG_AVAILABLE:
+        logger.info(
+            "HTTP Request",
+            method=method,
+            path=path,
+            user_id=user_id,
+            status_code=status_code,
+            duration_seconds=duration
+        )
+    else:
+        extra = dict(method=method, path=path, user_id=user_id,
+                     status_code=status_code, duration_seconds=duration)
+        logger.info("HTTP Request | %s %s | status=%s | user=%s | duration=%.3fs",
+                    method, path, status_code, user_id, duration or 0)
 
 
-def log_error(logger, error: Exception, error_type: str = None, 
+def log_error(logger, error: Exception, error_type: str = None,
               path: str = None, user_id: int = None):
-    """
-    记录错误日志
-    
-    Args:
-        logger: 日志记录器
-        error: 异常对象
-        error_type: 错误类型
-        path: 请求路径
-        user_id: 用户ID
-    """
-    logger.error(
-        error_type or type(error).__name__,
-        error_message=str(error),
-        path=path,
-        user_id=user_id,
-        exc_info=True
-    )
+    if STRUCTLOG_AVAILABLE:
+        logger.error(
+            error_type or type(error).__name__,
+            error_message=str(error),
+            path=path,
+            user_id=user_id,
+            exc_info=True
+        )
+    else:
+        logger.error("Error | %s | %s | path=%s | user=%s",
+                     error_type or type(error).__name__, str(error), path, user_id,
+                     exc_info=True)
 
 
-def log_user_action(logger, action: str, user_id: int, 
+def log_user_action(logger, action: str, user_id: int,
                    target_type: str = None, target_id: int = None, **kwargs):
-    """
-    记录用户行为日志
-    
-    Args:
-        logger: 日志记录器
-        action: 行为类型
-        user_id: 用户ID
-        target_type: 目标类型
-        target_id: 目标ID
-        **kwargs: 额外信息
-    """
-    logger.info(
-        "User Action",
-        action=action,
-        user_id=user_id,
-        target_type=target_type,
-        target_id=target_id,
-        **kwargs
-    )
+    if STRUCTLOG_AVAILABLE:
+        logger.info(
+            "User Action",
+            action=action,
+            user_id=user_id,
+            target_type=target_type,
+            target_id=target_id,
+            **kwargs
+        )
+    else:
+        logger.info("User Action | action=%s | user=%s | target=%s/%s | extra=%s",
+                    action, user_id, target_type, target_id, kwargs)
 
 
-def log_recommendation(logger, user_id: int, strategy: str, 
+def log_recommendation(logger, user_id: int, strategy: str,
                      count: int = None, **kwargs):
-    """
-    记录推荐日志
-    
-    Args:
-        logger: 日志记录器
-        user_id: 用户ID
-        strategy: 推荐策略
-        count: 推荐数量
-        **kwargs: 额外信息
-    """
-    logger.info(
-        "Recommendation Generated",
-        user_id=user_id,
-        strategy=strategy,
-        recommendation_count=count,
-        **kwargs
-    )
+    if STRUCTLOG_AVAILABLE:
+        logger.info(
+            "Recommendation Generated",
+            user_id=user_id,
+            strategy=strategy,
+            recommendation_count=count,
+            **kwargs
+        )
+    else:
+        logger.info("Recommendation Generated | user=%s | strategy=%s | count=%s | extra=%s",
+                    user_id, strategy, count, kwargs)

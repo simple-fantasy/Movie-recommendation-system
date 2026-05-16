@@ -189,8 +189,8 @@ async function loadProfile() {
   } finally {
     const loading = document.getElementById('loading');
     const content = document.getElementById('profile-content');
-    if (loading) loading.style.display = 'none';
-    if (content) content.style.display = 'block';
+    if (loading) loading.style.setProperty('display', 'none', 'important');
+    if (content) content.style.setProperty('display', 'block', 'important');
   }
 }
 
@@ -216,8 +216,8 @@ function displayProfile(profile) {
 async function refreshProfile() {
   const loading = document.getElementById('loading');
   const content = document.getElementById('profile-content');
-  if (loading) loading.style.display = 'flex';
-  if (content) content.style.display = 'none';
+  if (loading) loading.style.setProperty('display', 'flex', 'important');
+  if (content) content.style.setProperty('display', 'none', 'important');
 
   try {
     const data = await api('/api/user/profile/refresh', {
@@ -235,8 +235,8 @@ async function refreshProfile() {
     console.error('刷新画像失败:', error);
     alert('刷新失败：' + (error.message || '请稍后重试'));
   } finally {
-    if (loading) loading.style.display = 'none';
-    if (content) content.style.display = 'block';
+    if (loading) loading.style.setProperty('display', 'none', 'important');
+    if (content) content.style.setProperty('display', 'block', 'important');
   }
 }
 
@@ -245,10 +245,15 @@ window.addEventListener('resize', () => {
   if (yearsChart) yearsChart.resize();
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-  const refreshButton = document.getElementById('refresh-profile-btn');
+function initProfile() {
+  var refreshButton = document.getElementById('refresh-profile-btn');
   if (refreshButton) {
     refreshButton.addEventListener('click', refreshProfile);
   }
   loadProfile();
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initProfile);
+} else {
+  initProfile();
+}

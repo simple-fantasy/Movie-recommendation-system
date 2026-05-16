@@ -35,42 +35,88 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-  let currentPage = 1, hasMore = true, searchQuery = '';
-  async function loadLists(page = 1) {
+(function () {
+  var currentPage = 1, hasMore = true, searchQuery = '';
+
+  function $loading() { return document.getElementById('loading'); }
+  function $content() { return document.getElementById('lists-content'); }
+  function $grid()    { return document.getElementById('lists-grid'); }
+  function $moreBtn() { return document.getElementById('load-more-btn'); }
+
+  function setLoading(on) {
+    var l = $loading();
+    var c = $content();
+    if (l) l.style.setProperty('display', on ? 'flex' : 'none', 'important');
+    if (c) c.style.setProperty('display', on ? 'none' : 'block', 'important');
+  }
+
+  async function loadLists(page) {
+    if (page === undefined) page = 1;
     try {
-      let url = `/api/movie-lists/public?page=${page}`;
-      if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`;
-      const response = await fetch(url);
-      const data = await response.json();
+      var url = '/api/movie-lists/public?page=' + page;
+      if (searchQuery) url += '&search=' + encodeURIComponent(searchQuery);
+      var data = await api(url);
       if (data.movie_lists) {
-        if (page === 1) document.getElementById('lists-grid').innerHTML = '';
+        if (page === 1) {
+          var grid = $grid();
+          if (grid) grid.innerHTML = '';
+        }
         displayLists(data.movie_lists);
-        if (!data.pagination.has_next) { document.getElementById('load-more-btn').style.display = 'none'; hasMore = false; }
-        else { document.getElementById('load-more-btn').style.display = 'inline-block'; hasMore = true; }
+        var btn = $moreBtn();
+        if (!data.pagination.has_next) {
+          if (btn) btn.style.display = 'none';
+          hasMore = false;
+        } else {
+          if (btn) btn.style.display = 'inline-block';
+          hasMore = true;
+        }
         currentPage = data.pagination.page;
       }
-    } catch (error) { console.error('加载影单失败:', error); }
-    finally { document.getElementById('loading').style.display = 'none'; document.getElementById('lists-content').style.display = 'block'; }
+    } catch (e) {
+      console.error('加载影单失败:', e);
+      showToast('加载影单失败，请稍后重试', 'error');
+    } finally {
+      setLoading(false);
+    }
   }
+
   function displayLists(lists) {
-    const grid = document.getElementById('lists-grid');
-    if (lists.length === 0) { grid.innerHTML = `<div class="col-12 text-center text-secondary py-5"><div style="font-size:3rem;">📋</div><h3>暂无影单</h3><p>还没有公开的影单，成为第一个创建者吧！</p></div>`; return; }
-    lists.forEach(list => {
-      const col = document.createElement('div'); col.className = 'col-md-4';
-      col.innerHTML = `<div class="list-card" onclick="location.href='/movie-lists/${list.id}'">
-        <div class="list-cover">${list.cover_image ? `<img src="${list.cover_image}" alt="${list.name}">` : ''}${list.is_public ? '<span class="public-badge">公开</span>' : ''}</div>
-        <div class="list-content"><div class="list-title">${list.name}</div><div class="list-desc">${list.description || '暂无描述'}</div>
-        <div class="list-meta"><span><i class="ph ph-film-strip"></i> ${list.movie_count}部</span><span><i class="ph ph-eye"></i> ${list.view_count}</span><span><i class="ph ph-heart"></i> ${list.like_count}</span></div>
-        <div class="text-secondary mt-2 mb-0" style="font-size:.875rem;">创建者: ${list.username}</div></div></div>`;
+    var grid = $grid();
+    if (!grid) return;
+    if (lists.length === 0) {
+      grid.innerHTML = '<div class="col-12 text-center text-secondary py-5"><div style="font-size:3rem;">📋</div><h3>暂无影单</h3><p>还没有公开的影单，成为第一个创建者吧！</p></div>';
+      return;
+    }
+    lists.forEach(function (list) {
+      var col = document.createElement('div');
+      col.className = 'col-md-4';
+      col.innerHTML = '<div class="list-card" onclick="location.href=\'/movie-lists/' + list.id + '\'">'
+        + '<div class="list-cover">' + (list.cover_image ? '<img src="' + escapeHtml(list.cover_image) + '" alt="' + escapeHtml(list.name) + '">' : '') + (list.is_public ? '<span class="public-badge">公开</span>' : '') + '</div>'
+        + '<div class="list-content"><div class="list-title">' + escapeHtml(list.name) + '</div><div class="list-desc">' + escapeHtml(list.description || '暂无描述') + '</div>'
+        + '<div class="list-meta"><span><i class="ph ph-film-strip"></i> ' + (list.movie_count || 0) + '部</span><span><i class="ph ph-eye"></i> ' + (list.view_count || 0) + '</span><span><i class="ph ph-heart"></i> ' + (list.like_count || 0) + '</span></div>'
+        + '<div class="text-secondary mt-2 mb-0" style="font-size:.875rem;">创建者: ' + escapeHtml(list.username || '') + '</div></div></div>';
       grid.appendChild(col);
     });
   }
-  document.getElementById('search-input').addEventListener('input', debounce(function() {
-    searchQuery = this.value.trim(); currentPage = 1;
-    document.getElementById('loading').style.display = 'flex'; document.getElementById('lists-content').style.display = 'none';
-    loadLists(1);
-  }, 400));
-  document.getElementById('load-more-btn').addEventListener('click', () => { if (hasMore) loadLists(currentPage + 1); });
-  loadLists();
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.addEventListener('input', debounce(function () {
+        searchQuery = this.value.trim();
+        currentPage = 1;
+        setLoading(true);
+        loadLists(1);
+      }, 400));
+    }
+    var moreBtn = $moreBtn();
+    if (moreBtn) {
+      moreBtn.addEventListener('click', function () {
+        if (hasMore) loadLists(currentPage + 1);
+      });
+    }
+    loadLists();
+  });
+})();
 </script>
 {% endblock %}

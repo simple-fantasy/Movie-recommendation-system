@@ -1,200 +1,419 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const state = {
-    currentStrategy: 'popular',
-    isLoggedIn: false,
-    username: '',
-    feedbackState: new Map(),
+/* =========================================
+   CineMatch Recommendations — Vue 3 Application
+   ========================================= */
+
+(function () {
+  const { createApp } = Vue;
+  const { MovieCard, SkeletonGrid } = window.CinemaComponents;
+
+  const GENRE_MAP = window.GENRE_MAP || {};
+
+  function formatGenre(g) {
+    return GENRE_MAP[g] || g;
+  }
+
+  // ── RecommendationCard (local component) ────────────
+
+  const RecommendationCard = {
+    props: {
+      movie: { type: Object, required: true },
+      rank: { type: Number, default: 0 },
+      feedbackState: { type: String, default: null },
+      whyText: { type: String, default: null },
+      whyLoading: { type: Boolean, default: false },
+    },
+    emits: ['click', 'feedback', 'hover-why'],
+    template: `
+      <div class="rec-card h-100">
+        <!-- Rank badge (top 3 only) -->
+        <div v-if="rank <= 3 && rank >= 1" class="rec-rank" :class="'rec-rank-' + rank">#{{ rank }}</div>
+
+        <!-- Poster -->
+        <div class="rec-poster" @click="$emit('click', movie)">
+          <img v-if="showPoster" :src="movie.poster" :alt="movie.title" loading="lazy"
+               @error="posterFailed = true" />
+          <div v-else class="poster-gradient" :style="gradStyle">
+            <span class="poster-initial">{{ initial }}</span>
+          </div>
+          <!-- Hover overlay -->
+          <div class="rec-overlay">
+            <button class="rec-action-btn" title="查看详情" @click.stop="$emit('click', movie)">
+              <i class="ph ph-eye"></i>
+            </button>
+            <button class="rec-action-btn"
+                    :class="{ active: feedbackState === 'like' }"
+                    title="有用" @click.stop="$emit('feedback', {movieId: movie.id, type: 'like'})">
+              <i class="ph ph-thumbs-up"></i>
+            </button>
+            <button class="rec-action-btn"
+                    :class="{ active: feedbackState === 'dislike' }"
+                    title="不相关" @click.stop="$emit('feedback', {movieId: movie.id, type: 'dislike'})">
+              <i class="ph ph-thumbs-down"></i>
+            </button>
+            <button class="rec-action-btn" title="推荐理由"
+                    @click.stop="$emit('hover-why', movie.id)">
+              <i class="ph ph-info"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="rec-info">
+          <h3 class="rec-title" @click="$emit('click', movie)">{{ formatTitle(movie.title) }}</h3>
+          <div class="rec-meta">
+            <span v-if="movie.year" class="rec-year">{{ movie.year }}</span>
+            <span v-if="movie.avg_rating != null" class="rec-rating">
+              <i class="ph ph-star"></i> {{ movie.avg_rating.toFixed(1) }}
+            </span>
+          </div>
+          <div class="rec-genres" v-if="movie.genres">
+            <span v-for="g in genreList" :key="g" class="rec-genre-tag">{{ formatGenre(g) }}</span>
+          </div>
+        </div>
+
+        <!-- Why tooltip -->
+        <div v-if="whyLoading" class="rec-why rec-why-loading">
+          <i class="ph ph-spinner"></i> 分析中...
+        </div>
+        <div v-else-if="whyText" class="rec-why">
+          <i class="ph ph-lightbulb" style="color:var(--cinema-accent);font-size:0.7rem;"></i>
+          <span>{{ whyText }}</span>
+        </div>
+      </div>
+    `,
+    data() {
+      return { posterFailed: false };
+    },
+    computed: {
+      genreList() {
+        if (!this.movie.genres) return [];
+        return String(this.movie.genres).split('|').filter(Boolean).slice(0, 3);
+      },
+      showPoster() {
+        return !this.posterFailed && hasValidPoster(this.movie.poster);
+      },
+      gradStyle() {
+        return posterGradientStyle(this.movie.title);
+      },
+      initial() {
+        return posterInitial(this.movie.title);
+      },
+    },
+    methods: {
+      formatTitle(title) {
+        return formatMovieTitle(title);
+      },
+      formatGenre(g) {
+        return formatGenre(g);
+      },
+    },
   };
 
-  const recommendationsEl = document.getElementById('recommendations');
-  const strategyCards = Array.from(document.querySelectorAll('.strategy-card'));
-  const authStatus = document.getElementById('authStatus');
-  const btnLogin = document.getElementById('btnLoginPage');
-  const btnLogout = document.getElementById('btnLogout');
+  // ── Vue App ─────────────────────────────────────────
 
-  async function init() {
-    try {
-      const me = await api('/api/me');
-      state.isLoggedIn = Boolean(me.authenticated);
-      state.username = me.username || '';
-      setAuthUI(state.isLoggedIn, state.username);
-    } catch (error) {
-      state.isLoggedIn = false;
-      setAuthUI(false, '');
-    }
+  const recApp = createApp({
+    components: { MovieCard, SkeletonGrid, RecommendationCard },
 
-    attachStrategyListeners();
-    attachLogoutListener();
-    attachRecommendationActions();
-    loadRecommendations('popular');
-  }
+    data() {
+      return {
+        user: null,
+        allMovies: [],          // full fetch (up to 50)
+        displayCount: 24,       // how many to show
+        loading: true,
+        error: false,
+        errorCode: null,        // 'MODEL_LOADING' | 'MODEL_NOT_AVAILABLE' | null
+        errorMessage: '',
+        retryTimer: null,
+        retrySeconds: 0,
 
-  function setAuthUI(loggedIn, username) {
-    if (!authStatus || !btnLogin || !btnLogout) return;
-    authStatus.textContent = loggedIn ? `已登录：${username}` : '未登录';
-    btnLogin.style.display = loggedIn ? 'none' : 'inline-block';
-    btnLogout.style.display = loggedIn ? 'inline-block' : 'none';
-  }
+        currentStrategy: 'popular',
+        strategies: [
+          { key: 'popular', label: '热门高分', icon: 'ph-fire' },
+          { key: 'itemcf', label: 'ItemCF', icon: 'ph-target' },
+          { key: 'ncf', label: 'NCF', icon: 'ph-brain' },
+          { key: 'hybrid', label: '混合推荐', icon: 'ph-lightning' },
+        ],
 
-  function attachStrategyListeners() {
-    strategyCards.forEach(card => {
-      card.addEventListener('click', () => {
-        strategyCards.forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
-        state.currentStrategy = card.dataset.strategy || 'popular';
-        loadRecommendations(state.currentStrategy);
-      });
-    });
-  }
+        feedback: {},           // { movieId: 'like'|'dislike' }
+        whyCache: {},           // { movieId: text }
+        whyLoading: {},         // { movieId: true }
 
-  function attachLogoutListener() {
-    if (!btnLogout) return;
-    btnLogout.addEventListener('click', async (event) => {
-      event.preventDefault();
-      try {
-        await api('/api/auth/logout', { method: 'POST', body: {} });
-        state.isLoggedIn = false;
-        setAuthUI(false, '');
-        loadRecommendations(state.currentStrategy);
-      } catch (error) {
-        showToast(`退出失败：${error.message}`, 'error');
-      }
-    });
-  }
+        // Filters
+        filterGenre: null,
+        filterGenres: [],
+        showFilters: false,
+      };
+    },
 
-  function attachRecommendationActions() {
-    if (!recommendationsEl) return;
-    recommendationsEl.addEventListener('click', (event) => {
-      const retryButton = event.target.closest('[data-action="reload-recommendations"]');
-      if (retryButton) {
-        loadRecommendations(state.currentStrategy);
-      }
-    });
-  }
+    computed: {
+      movies() {
+        let list = this.allMovies;
+        if (this.filterGenre) {
+          list = list.filter((m) => {
+            const genres = String(m.genres || '').toLowerCase();
+            return genres.includes(this.filterGenre.toLowerCase());
+          });
+        }
+        return list.slice(0, this.displayCount);
+      },
 
-  function renderSkeletons() {
-    if (!recommendationsEl) return;
-    recommendationsEl.innerHTML = Array.from({ length: 6 }).map(() => '<div class="loading-skeleton"></div>').join('');
-  }
+      hasMore() {
+        let list = this.allMovies;
+        if (this.filterGenre) {
+          list = list.filter((m) => {
+            const genres = String(m.genres || '').toLowerCase();
+            return genres.includes(this.filterGenre.toLowerCase());
+          });
+        }
+        return this.displayCount < list.length;
+      },
 
-  async function loadRecommendations(strategy) {
-    if (!recommendationsEl) return;
-    recommendationsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    renderSkeletons();
+      availableGenres() {
+        const set = new Set();
+        this.allMovies.forEach((m) => {
+          String(m.genres || '')
+            .split('|')
+            .filter(Boolean)
+            .forEach((g) => set.add(g.trim()));
+        });
+        return Array.from(set).sort();
+      },
+    },
 
-    try {
-      let recs = [];
-
-      if (strategy === 'popular') {
-        const items = await api('/api/movies/popular?limit=20&min_count=50');
-        recs = items.map(item => ({
-          movie_id: item.id,
-          title: item.title,
-          year: item.year,
-          genres: item.genres,
-          score: item.avg_rating || 0,
-          rating_count: item.rating_count || 0,
-          reason: 'popular',
-          because: [],
-        }));
+    async mounted() {
+      await this.checkAuth();
+      // Default to popular for guests, hybrid for logged-in
+      if (!this.user) {
+        this.currentStrategy = 'popular';
       } else {
-        if (!state.isLoggedIn) {
-          renderStateMessage(recommendationsEl, 'info', '需要登录', '个性化推荐需要登录后才能获取。', '<a href="/login" class="btn btn-primary">去登录</a>');
+        this.currentStrategy = 'hybrid';
+      }
+      this.loadRecommendations();
+    },
+
+    methods: {
+      async checkAuth() {
+        try {
+          const me =
+            window._authPromise ? await window._authPromise : await api('/api/me');
+          this.user = me && me.authenticated ? me : null;
+        } catch (e) {
+          this.user = null;
+        }
+      },
+
+      switchStrategy(key) {
+        if (this.retryTimer) {
+          clearInterval(this.retryTimer);
+          this.retryTimer = null;
+        }
+        this.currentStrategy = key;
+        this.allMovies = [];
+        this.displayCount = 24;
+        this.whyCache = {};
+        this.whyLoading = {};
+        this.filterGenre = null;
+        this.showFilters = false;
+        this.loadRecommendations();
+      },
+
+      async loadRecommendations() {
+        this.loading = true;
+        this.error = false;
+        this.errorCode = null;
+        this.errorMessage = '';
+
+        try {
+          let data;
+          if (this.currentStrategy === 'popular') {
+            data = await api('/api/movies/popular?limit=50');
+          } else {
+            // Force login for personalized strategies
+            if (!this.user) {
+              showToast('请先登录以使用个性化推荐', 'error');
+              this.currentStrategy = 'popular';
+              data = await api('/api/movies/popular?limit=50');
+              return;
+            }
+            data = await api(
+              '/api/recommendations?n=50&strategy=' + this.currentStrategy
+            );
+          }
+
+          let list = Array.isArray(data) ? data : data.recommendations || [];
+          this.allMovies = list.map(normalizeMovie);
+          this.displayCount = 24;
+          this.filterGenres = this.availableGenres;
+        } catch (e) {
+          console.error('Recommendations load failed', e);
+          this.allMovies = [];
+
+          // Parse 503 errors
+          if (e.response && e.response.status === 503) {
+            const msg =
+              (e.data && (e.data.error || e.data.message)) || '';
+            if (msg.includes('MODEL_LOADING') || msg.includes('loading')) {
+              this.errorCode = 'MODEL_LOADING';
+              this.errorMessage = '推荐模型正在加载中，请稍候...';
+              this.startRetryCountdown(5);
+            } else if (
+              msg.includes('MODEL_NOT_AVAILABLE') ||
+              msg.includes('not available')
+            ) {
+              this.errorCode = 'MODEL_NOT_AVAILABLE';
+              this.errorMessage =
+                '推荐模型暂不可用，已自动切换为热门推荐。';
+              // Auto-fallback to popular
+              setTimeout(() => {
+                this.currentStrategy = 'popular';
+                this.loadRecommendations();
+              }, 2000);
+            } else {
+              this.error = true;
+            }
+          } else {
+            this.error = true;
+          }
+        } finally {
+          this.loading = false;
+        }
+      },
+
+      startRetryCountdown(seconds) {
+        this.retrySeconds = seconds;
+        this.retryTimer = setInterval(() => {
+          this.retrySeconds--;
+          if (this.retrySeconds <= 0) {
+            clearInterval(this.retryTimer);
+            this.retryTimer = null;
+            this.loadRecommendations();
+          }
+        }, 1000);
+      },
+
+      loadMore() {
+        this.displayCount = Math.min(
+          this.displayCount + 24,
+          this.allMovies.length
+        );
+      },
+
+      // ── Filters ──────────────────────────────────
+
+      selectFilterGenre(genre) {
+        if (this.filterGenre === genre) {
+          this.filterGenre = null;
+        } else {
+          this.filterGenre = genre;
+        }
+        this.displayCount = 24;
+      },
+
+      // ── Why tooltip ──────────────────────────────
+
+      async fetchWhy(movieId) {
+        if (!this.user) return;
+        if (this.whyCache[movieId] !== undefined) return;
+        if (this.whyLoading[movieId]) return;
+
+        this.whyLoading = { ...this.whyLoading, [movieId]: true };
+        try {
+          const data = await api('/api/recommendations/why/' + movieId);
+          if (data && data.because && data.because.length) {
+            const names = data.because
+              .slice(0, 3)
+              .map((b) => '《' + b.title + '》')
+              .join('、');
+            this.whyCache = {
+              ...this.whyCache,
+              [movieId]: '因为你喜欢 ' + names,
+            };
+          } else {
+            this.whyCache = {
+              ...this.whyCache,
+              [movieId]: '基于你的观影偏好推荐',
+            };
+          }
+        } catch (e) {
+          this.whyCache = {
+            ...this.whyCache,
+            [movieId]: '推荐理由获取失败',
+          };
+        } finally {
+          this.whyLoading = { ...this.whyLoading, [movieId]: false };
+        }
+      },
+
+      // ── Feedback ─────────────────────────────────
+
+      async sendFeedback(movieId, type) {
+        if (!this.user) {
+          showToast('请先登录', 'error');
           return;
         }
-
-        const data = await api(`/api/recommendations?n=12&strategy=${encodeURIComponent(strategy)}`);
-        if (!Array.isArray(data)) {
-          throw new Error('推荐结果格式异常');
+        // Optimistic update
+        const prev = this.feedback[movieId];
+        this.feedback = { ...this.feedback, [movieId]: type };
+        try {
+          await api('/api/feedback', {
+            method: 'POST',
+            body: { movie_id: movieId, feedback: type },
+          });
+          showToast(
+            type === 'like' ? '感谢反馈！' : '已记录，将优化推荐',
+            'success'
+          );
+        } catch (e) {
+          // Revert
+          this.feedback = { ...this.feedback, [movieId]: prev };
+          showToast('反馈提交失败', 'error');
         }
-        recs = data.map(item => ({
-          movie_id: item.movie_id,
-          title: item.title,
-          year: item.year,
-          genres: item.genres,
-          score: item.score || 0,
-          rating_count: item.rating_count || 0,
-          reason: item.reason || 'recommend',
-          because: item.because || [],
-        }));
-      }
+      },
 
-      renderRecommendations(recs, strategy);
-    } catch (error) {
-      renderStateMessage(recommendationsEl, 'error', '加载失败', error.message || '无法获取推荐结果。', '<button type="button" class="btn btn-outline-primary" data-action="reload-recommendations">重试</button>');
-    }
-  }
+      // ── Navigation ───────────────────────────────
 
-  function renderRecommendations(recs, strategy) {
-    if (!recommendationsEl) return;
-    if (!recs.length) {
-      renderStateMessage(recommendationsEl, 'info', '暂无推荐', strategy === 'popular' ? '暂无热门电影数据。' : '请先评分几部电影，让我们了解你的喜好。', '<a href="/app" class="btn btn-primary">去评分</a>');
-      return;
-    }
+      goToMovie(movie) {
+        const id = movie.id || movie.movie_id;
+        if (id) window.location.href = '/movie/' + id;
+      },
 
-    recommendationsEl.innerHTML = '';
+      // ── Helpers ───────────────────────────────────
 
-    recs.forEach(rec => {
-      const card = document.createElement('div');
-      card.className = 'movie-card';
+      formatTitle(title) {
+        return formatMovieTitle(title);
+      },
 
-      const badgeClass = rec.reason === 'hybrid' ? 'badge-hybrid' : rec.reason === 'ncf' ? 'badge-ncf' : rec.reason === 'popular' ? 'badge-popular' : 'badge-itemcf';
-      const badgeText = rec.reason === 'hybrid' ? '混合推荐' : rec.reason === 'ncf' ? 'NCF' : rec.reason === 'popular' ? '热门' : 'ItemCF';
-      const formattedTitle = formatMovieTitle(rec.title);
-      const displayScore = rec.rating_count ? `均分 ${Number(rec.score).toFixed(1)} · ${rec.rating_count}人评分` : `推荐分 ${Number(rec.score).toFixed(3)}`;
-      const reasonHtml = rec.because && rec.because.length ? `<div class="movie-reason">${rec.because.slice(0, 3).map(item => `<span class="reason-pill">因为你喜欢：${escapeHtml(formatMovieTitle(item.title))}</span>`).join('')}</div>` : '';
-      const feedback = state.feedbackState.get(rec.movie_id);
-      const likeClass = feedback === 'like' ? 'active' : '';
-      const dislikeClass = feedback === 'dislike' ? 'active' : '';
-      const disabled = feedback ? 'disabled' : '';
+      formatGenre(g) {
+        return formatGenre(g);
+      },
 
-      card.innerHTML = `
-        <div class="movie-header">
-          <a href="/movie/${rec.movie_id}" class="movie-title">${escapeHtml(formattedTitle)}</a>
-          <span class="movie-badge ${badgeClass}">${badgeText}</span>
-        </div>
-        <div class="movie-meta">${rec.year ? `${rec.year} · ` : ''}${escapeHtml(rec.genres || '未知类型')}</div>
-        <div class="movie-score">⭐ ${escapeHtml(displayScore)}</div>
-        ${reasonHtml}
-        <div class="feedback-bar">
-          <button type="button" class="btn btn-sm btn-feedback btn-outline-success ${likeClass}" ${disabled} data-movie="${rec.movie_id}" data-type="like">👍 有用</button>
-          <button type="button" class="btn btn-sm btn-feedback btn-outline-danger ${dislikeClass}" ${disabled} data-movie="${rec.movie_id}" data-type="dislike">👎 不相关</button>
-        </div>
-      `;
+      rankStyle(idx) {
+        if (idx === 0)
+          return 'background:linear-gradient(135deg,#e5a00d,#f5b830);color:#0a0a0a;';
+        if (idx === 1)
+          return 'background:linear-gradient(135deg,#a3a3a3,#c0c0c0);color:#0a0a0a;';
+        if (idx === 2)
+          return 'background:linear-gradient(135deg,#cd7f32,#d48f50);color:#0a0a0a;';
+        return '';
+      },
 
-      card.querySelectorAll('.btn-feedback').forEach(button => {
-        button.addEventListener('click', async (event) => {
-          event.preventDefault();
-          const movieId = Number(button.dataset.movie);
-          const feedbackType = button.dataset.type;
-          await sendFeedback(movieId, feedbackType, card);
-        });
-      });
+      strategyColor(s) {
+        const map = {
+          itemcf: 'warning', ncf: 'info', hybrid: 'accent',
+          popular: 'secondary', similarity: 'warning',
+        };
+        return map[s] || 'secondary';
+      },
 
-      recommendationsEl.appendChild(card);
-    });
-  }
+      strategyLabel(s) {
+        const map = {
+          itemcf: 'ItemCF', ncf: 'NCF', hybrid: '混合',
+          popular: '热门', similarity: 'ItemCF',
+        };
+        return map[s] || s;
+      },
+    },
+  });
 
-  async function sendFeedback(movieId, feedback, cardElement) {
-    if (!state.isLoggedIn) {
-      showToast('请先登录后再提交反馈', 'error');
-      return;
-    }
-
-    try {
-      await api('/api/feedback', { method: 'POST', body: { movie_id: movieId, feedback, context: 'recommend' } });
-      state.feedbackState.set(movieId, feedback);
-      cardElement.querySelectorAll('.btn-feedback').forEach(button => {
-        button.disabled = true;
-        if (button.dataset.type === feedback) {
-          button.classList.add('active');
-        }
-      });
-      showToast(feedback === 'like' ? '已标记为有用 👍' : '已标记为不相关 👎', 'success');
-    } catch (error) {
-      showToast(`反馈提交失败：${error.message}`, 'error');
-    }
-  }
-
-  init();
-});
+  recApp.mount('#recApp');
+})();

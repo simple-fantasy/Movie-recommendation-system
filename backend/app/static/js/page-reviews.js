@@ -170,6 +170,17 @@ async function postReview() {
   }
 }
 
+function setAuthUI(loggedIn, username, isAdmin) {
+  const authStatus = document.getElementById('authStatus');
+  const btnLogin = document.getElementById('btnLoginPage');
+  const btnLogout = document.getElementById('btnLogout');
+  const adminNav = document.getElementById('adminNavItem');
+  if (authStatus) authStatus.textContent = loggedIn ? `已登录：${username}` : '未登录';
+  if (btnLogin) btnLogin.style.display = loggedIn ? 'none' : 'inline-block';
+  if (btnLogout) btnLogout.style.display = loggedIn ? 'inline-block' : 'none';
+  if (adminNav) adminNav.style.display = loggedIn && isAdmin ? 'block' : 'none';
+}
+
 async function initAuth() {
   try {
     const data = await api('/api/me');

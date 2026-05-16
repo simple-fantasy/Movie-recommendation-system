@@ -37,8 +37,8 @@ async function loadInsights() {
   } finally {
     const loading = document.getElementById('loading');
     const content = document.getElementById('insights-content');
-    if (loading) loading.style.display = 'none';
-    if (content) content.style.display = 'block';
+    if (loading) loading.style.setProperty('display', 'none', 'important');
+    if (content) content.style.setProperty('display', 'block', 'important');
   }
 }
 
@@ -101,4 +101,9 @@ function displayEmptyState() {
   grid.appendChild(col);
 }
 
-document.addEventListener('DOMContentLoaded', loadInsights);
+function init() { loadInsights(); }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

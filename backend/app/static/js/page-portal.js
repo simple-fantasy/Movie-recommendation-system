@@ -13,4 +13,9 @@ function createParticles() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', createParticles);
+function initPortal() { createParticles(); }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPortal);
+} else {
+  initPortal();
+}

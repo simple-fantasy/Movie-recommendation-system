@@ -18,8 +18,8 @@ async function loadList() {
   } finally {
     const loadingEl = document.getElementById('loading');
     const contentEl = document.getElementById('content');
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (contentEl) contentEl.style.display = 'block';
+    if (loadingEl) loadingEl.style.setProperty('display', 'none', 'important');
+    if (contentEl) contentEl.style.setProperty('display', 'block', 'important');
   }
 }
 
@@ -64,9 +64,16 @@ function displayMovies(movies) {
   movies.forEach((item, index) => {
     const card = document.createElement('div');
     card.className = 'movie-card';
+    const posterUrl = item.movie_poster || '';
+    const posterEl = hasValidPoster(posterUrl)
+      ? `<img src="${posterUrl}" alt="${item.movie_title}" class="movie-poster" onerror="this.style.display='none';this.nextElementSibling.style.display=''" />`
+      : '';
+    const fallbackEl = posterEl
+      ? `<div class="poster-gradient" style="display:none;width:100px;height:150px;${posterGradientStyle(item.movie_title)}"><span class="poster-initial">${posterInitial(item.movie_title)}</span></div>`
+      : `<div class="poster-gradient" style="width:100px;height:150px;${posterGradientStyle(item.movie_title)}"><span class="poster-initial">${posterInitial(item.movie_title)}</span></div>`;
     card.innerHTML = `
       <span class="text-muted mr-2">#${index + 1}</span>
-      <img src="${item.movie_poster || 'https://via.placeholder.com/100x150'}" alt="${item.movie_title}" class="movie-poster" />
+      ${posterEl}${fallbackEl}
       <div class="movie-info">
         <h5 class="movie-title">${item.movie_title}</h5>
         <p class="movie-year">📅 ${item.movie_year || '未知年份'}</p>
@@ -178,18 +185,16 @@ async function submitComment() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function initListDetail() {
   if (!listId) return;
-
-  const commentButton = document.getElementById('comment-submit-btn');
-  if (commentButton) {
-    commentButton.addEventListener('click', submitComment);
-  }
-
-  const likeButton = document.getElementById('like-btn');
-  if (likeButton) {
-    likeButton.addEventListener('click', toggleLike);
-  }
-
+  var commentButton = document.getElementById('comment-submit-btn');
+  if (commentButton) commentButton.addEventListener('click', submitComment);
+  var likeButton = document.getElementById('like-btn');
+  if (likeButton) likeButton.addEventListener('click', toggleLike);
   loadList();
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initListDetail);
+} else {
+  initListDetail();
+}

@@ -62,6 +62,21 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        # Auto-seed sample data if database is empty
+        from backend.app.models import Movie, User, Rating
+        from backend.app.seed import seed_sample_data
+        just_seeded = seed_sample_data(db, Movie, User, Rating)
+        if just_seeded:
+            # Enrich posters in background thread so startup isn't blocked
+            import threading
+            def _enrich_posters():
+                with app.app_context():
+                    try:
+                        from backend.scripts.enrich_movies import enrich_movies
+                        enrich_movies(skip_existing=True, posters_only=True)
+                    except Exception as e:
+                        app.logger.warning(f"Background poster enrichment failed: {e}")
+            threading.Thread(target=_enrich_posters, daemon=True).start()
 
     # 启动时异步预加载NCF模型（Flask 3.0兼容写法）
     _ncf_preloaded = False
