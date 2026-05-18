@@ -110,7 +110,7 @@ def sample_eval_negs_row(
     return row
 
 
-def load_interactions(min_ratings_per_user: int, val_ratio: float = 0.1) -> tuple[np.ndarray, np.ndarray, dict[int, int], dict[int, int]]:
+def load_interactions(min_ratings_per_user: int, val_ratio: float = 0.1, user_mod: int = 1) -> tuple[np.ndarray, np.ndarray, dict[int, int], dict[int, int]]:
     rows = (
         Rating.query.with_entities(Rating.user_id, Rating.movie_id, Rating.rating, Rating.timestamp, Rating.id)
         .order_by(Rating.user_id.asc(), Rating.timestamp.asc(), Rating.id.asc())
@@ -118,6 +118,8 @@ def load_interactions(min_ratings_per_user: int, val_ratio: float = 0.1) -> tupl
     )
     by_user: dict[int, list[tuple[int, float, object, int]]] = {}
     for uid, mid, r, ts, rid in rows:
+        if int(uid) % user_mod != 0:
+            continue
         by_user.setdefault(int(uid), []).append((int(mid), float(r), ts, int(rid)))
 
     by_user = {uid: items for uid, items in by_user.items() if len(items) >= min_ratings_per_user}
@@ -349,6 +351,8 @@ def main() -> None:
     parser.add_argument("--neg-ratio", type=int, default=1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--min-ratings-per-user", type=int, default=10)
+    parser.add_argument("--user-mod", type=int, default=1,
+                        help="Only keep users where userId %% N == 0 (N=10 keeps ~10%% users)")
     parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument(
         "--eval-forward-chunk",
@@ -381,7 +385,7 @@ def main() -> None:
     app = create_app()
     with app.app_context():
         train_pairs, val_pairs, user2idx, item2idx = load_interactions(
-            cfg.min_ratings_per_user, val_ratio=cfg.val_ratio
+            cfg.min_ratings_per_user, val_ratio=cfg.val_ratio, user_mod=int(args.user_mod)
         )
         num_users = len(user2idx)
         num_items = len(item2idx)
