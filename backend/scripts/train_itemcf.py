@@ -18,6 +18,8 @@ def main() -> None:
                         help="Only keep movies with >= N ratings")
     parser.add_argument("--min-ratings-per-user", type=int, default=5,
                         help="Only keep users with >= N ratings")
+    parser.add_argument("--normalize", action=argparse.BooleanOptionalAction, default=True,
+                        help="Center ratings by user mean (adjusted cosine similarity)")
     args = parser.parse_args()
 
     app = create_app()
@@ -52,6 +54,12 @@ def main() -> None:
 
         print(f"  Filtered ratings: {len(df)}")
         print(f"  Sparsity: {len(df) / (df['user_id'].nunique() * df['movie_id'].nunique()):.4%}")
+
+        # Normalize: center ratings by user mean (adjusted cosine similarity)
+        if args.normalize:
+            user_means = df.groupby("user_id")["rating"].transform("mean")
+            df["rating"] = df["rating"] - user_means
+            print("  Ratings normalized (user-mean centered)")
 
         user_codes, user_uniques = pd.factorize(df["user_id"], sort=True)
         movie_codes, movie_uniques = pd.factorize(df["movie_id"], sort=True)
