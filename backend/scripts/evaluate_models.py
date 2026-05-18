@@ -140,15 +140,25 @@ def sample_ncf_candidates(
     seen: set[int],
     candidate_pool_size: int,
     rng: np.random.Generator,
+    must_include: set[int] | None = None,
 ) -> list[int]:
-    """Sample NCF candidate pool from unseen items."""
-    unseen = list(all_item_ids - seen)
-    if not unseen:
-        return []
-    if candidate_pool_size <= 0 or len(unseen) <= candidate_pool_size:
-        return unseen
-    sampled = rng.choice(np.asarray(unseen, dtype=np.int64), size=candidate_pool_size, replace=False)
-    return sampled.astype(np.int64).tolist()
+    """Sample NCF candidate pool from unseen items.
+
+    When must_include is provided, those items are guaranteed to be in the
+    returned list (critical for fair evaluation: the test item must be
+    reachable by the model).
+    """
+    must = set(must_include or [])
+    unseen = [i for i in (all_item_ids - seen) if i not in must]
+    if candidate_pool_size <= 0:
+        return list(must) + unseen
+    available_slots = candidate_pool_size - len(must)
+    if available_slots <= 0 or len(unseen) <= available_slots:
+        return list(must) + unseen
+    sampled = rng.choice(np.asarray(unseen, dtype=np.int64), size=available_slots, replace=False)
+    result = list(must) + sampled.astype(np.int64).tolist()
+    rng.shuffle(np.asarray(result, dtype=np.int64))
+    return result
 
 
 def hybrid_recommend(
@@ -254,8 +264,10 @@ def evaluate_model(
         if model_name == "itemcf":
             recs = itemcf_recommend(sims, history, seen, k=k, per_seed_limit=per_seed_limit)
         elif model_name == "ncf":
-            # NCF: rank a sampled unseen candidate pool
-            candidates = sample_ncf_candidates(all_item_ids, seen, ncf_candidate_pool_size, rng)
+            # NCF: rank a sampled unseen candidate pool (ensure test item is reachable)
+            candidates = sample_ncf_candidates(
+                all_item_ids, seen, ncf_candidate_pool_size, rng, must_include={test_mid}
+            )
             recs = ncf_recommend(uid, candidates, k)
         elif model_name == "hybrid":
             recs = hybrid_recommend(

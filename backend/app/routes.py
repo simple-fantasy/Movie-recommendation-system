@@ -673,9 +673,16 @@ def recommend():
             result = _format_recommendations(ranked, contributions, user_ratings, "similarity")
             return jsonify(result)
 
-        # Get all unrated items as candidates (limit to reasonable number)
-        all_item_ids = {m.id for m in Movie.query.with_entities(Movie.id).all()}
-        candidate_ids = list(all_item_ids - rated_movie_ids)[:500]  # Cap at 500 for performance
+        # Use popular unrated movies as NCF candidates (deterministic + reasonable quality)
+        popular_unrated = (
+            db.session.query(Rating.movie_id, db.func.count(Rating.id).label("cnt"))
+            .filter(~Rating.movie_id.in_(rated_movie_ids))
+            .group_by(Rating.movie_id)
+            .order_by(db.desc("cnt"))
+            .limit(500)
+            .all()
+        )
+        candidate_ids = [int(mid) for mid, _ in popular_unrated]
 
         ncf_ranked = _ncf_rank(current_user.id, candidate_ids, top_k=top_n)
         # Build empty contributions for NCF-only (no ItemCF explanation)
