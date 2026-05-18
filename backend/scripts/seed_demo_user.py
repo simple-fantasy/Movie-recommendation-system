@@ -66,21 +66,22 @@ def main() -> None:
         # Select NUM_RATINGS movies with genre diversity
         rng = random.Random(42)
         # Weight: prefer higher avg rating with some randomness
-        scored = [(m, float(avg) + rng.uniform(-0.5, 0.5)) for m, _, _, _, avg in popular_movies]
-        scored.sort(key=lambda x: x[1], reverse=True)
+        scored = [(mid, title, genres, float(avg) + rng.uniform(-0.5, 0.5))
+                   for mid, title, genres, _cnt, avg in popular_movies]
+        scored.sort(key=lambda x: x[3], reverse=True)
 
         # Pick top ~70 by score, then randomly sample from those
-        candidates = [m for m, _ in scored[:70]]
+        candidates = scored[:70]
         rng.shuffle(candidates)
         selected = candidates[:NUM_RATINGS]
 
         # Assign ratings: sample from a realistic distribution (skewed to high ratings)
         rating_pool = [3.0, 3.0, 3.5, 3.5, 4.0, 4.0, 4.0, 4.5, 4.5, 5.0]
         rows = []
-        for movie in selected:
+        for mid, _title, _genres, _score in selected:
             r = Rating(
                 user_id=user.id,
-                movie_id=movie.id,
+                movie_id=int(mid),
                 rating=rng.choice(rating_pool),
             )
             rows.append(r)
@@ -90,13 +91,15 @@ def main() -> None:
 
         # Print summary
         genres_seen: dict[str, int] = {}
-        for movie in selected:
-            if movie.genres:
-                for g in movie.genres.split("|"):
+        for _mid, _title, genres, _score in selected:
+            if genres:
+                for g in genres.split("|"):
                     genres_seen[g] = genres_seen.get(g, 0) + 1
 
+        rated_titles = [(title, genres) for _mid, title, genres, _score in selected[:5]]
         print(f"Seeded {len(rows)} ratings for demo user (id={user.id})")
         print(f"Genres covered: {dict(sorted(genres_seen.items(), key=lambda x: -x[1]))}")
+        print(f"Sample movies rated: {rated_titles}")
         print(f"\nDemo login: username={DEMO_USERNAME} password={DEMO_PASSWORD}")
         print("Visit http://127.0.0.1:5000/app and log in as 'demo' to see recommendations.")
 

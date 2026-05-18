@@ -1,114 +1,120 @@
-# Movie Recommendation System (毕业设计)
+# 电影推荐系统 (Movie Recommendation System)
 
-本项目是一个面向本科毕业设计的电影推荐系统，采用 Flask + MySQL + ItemCF/NCF/Hybrid 的实现路线，覆盖了数据导入、离线训练、在线推荐、可视化看板与离线评估全链路。
+本科毕业设计项目，基于 Flask + MySQL + ItemCF/NCF/Hybrid 的完整电影推荐系统。
 
-## 1. 项目定位与主线
+## 1. 项目定位
 
-- **主模型**：ItemCF（基于物品协同过滤）
+- **主模型**：ItemCF（基于物品协同过滤），强调可解释推荐
 - **扩展模型**：NCF（神经协同过滤）与 Hybrid（ItemCF 召回 + NCF 重排）
-- **目标**：完成“可运行系统 + 可解释推荐 + 可评估结果 + 可展示看板”
-
-答辩建议主线：
-1. 系统工程主线以 `ItemCF` 为核心，确保稳定与可解释；
-2. `NCF/Hybrid` 作为扩展优化探索，不强行宣称全面优于基线。
+- **数据集**：MovieLens 32M（32M 条评分 / 27万用户 / 8.7万电影）
+- **目标**：可运行系统 + 可解释推荐 + 离线评估 + 可视化看板
 
 ## 2. 技术栈
 
-- Python 3.10
-- Flask / Flask-Login / Flask-SQLAlchemy
-- MySQL + PyMySQL
-- NumPy / Pandas / SciPy / scikit-learn
-- PyTorch（NCF 训练与推理）
-- Bootstrap + ECharts（前端可视化）
+- **后端**：Python 3.10 / Flask / Flask-SQLAlchemy / Flask-Login
+- **数据库**：MySQL + PyMySQL
+- **算法**：NumPy / Pandas / SciPy / scikit-learn / PyTorch
+- **前端**：Bootstrap 5 / Vue.js 3 / ECharts / GSAP
 
-## 3. 目录结构（关键）
+## 3. 快速开始
 
-- `backend/app/routes.py`：核心 API、推荐逻辑、看板接口
-- `backend/app/models.py`：数据库模型
-- `backend/scripts/import_movielens.py`：数据导入
-- `backend/scripts/train_itemcf.py`：ItemCF 离线训练
-- `backend/scripts/train_ncf.py`：NCF 训练
-- `backend/scripts/evaluate_itemcf.py`：ItemCF 离线评估
-- `backend/scripts/evaluate_models.py`：多模型评估与消融
-- `backend/app/templates/app.html`：主应用页
-- `backend/app/templates/dashboard.html`：可视化看板
-- `backend/artifacts/`：模型与评估产物
-
-## 4. 环境准备
-
-### 4.1 安装依赖
+### 3.1 环境准备
 
 ```bash
+# 安装依赖
 pip install -r requirements.txt
+
+# 启动 MySQL 并创建数据库
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS movie_rec CHARACTER SET utf8mb4;"
 ```
 
-或使用 `environment.yml` 创建 Conda 环境。
-
-### 4.2 数据库配置（MySQL）
-
-默认读取 `backend/config.py`：
-
-- 默认 URI: `mysql+pymysql://root:ftrk2756@localhost:3306/movie_rec?charset=utf8mb4`
-- 推荐使用环境变量覆盖：
-
-```powershell
-$env:DATABASE_URL="mysql+pymysql://<user>:<password>@localhost:3306/movie_rec?charset=utf8mb4"
-```
-
-## 5. 运行流程
-
-### Step 1: 导入数据
+### 3.2 数据导入（ml-32m）
 
 ```bash
-python -m backend.scripts.import_movielens --data-dir "<你的MovieLens目录>"
+# 快速导入（推荐，约 5-10 分钟）
+python -m backend.scripts.import_fast --data-dir data/ml-32m
 ```
 
-### Step 2: 训练 ItemCF
+### 3.3 模型训练
 
 ```bash
-python -m backend.scripts.train_itemcf
+# ItemCF（必选，主模型）
+python -m backend.scripts.train_itemcf \
+    --min-ratings-per-movie 50 \
+    --min-ratings-per-user 5 \
+    --normalize
+
+# NCF（可选，扩展模型）
+python -m backend.scripts.train_ncf \
+    --epochs 10 \
+    --batch-size 4096 \
+    --hidden-dim 128 \
+    --user-mod 10 \
+    --device cpu
+
+# 离线评估
+python -m backend.scripts.evaluate_models --models all --k 10
 ```
 
-### Step 3: （可选）训练 NCF
+### 3.4 创建演示用户
 
 ```bash
-python -m backend.scripts.train_ncf --epochs 20 --batch-size 8192 --hidden-dim 128 --device cuda --lr 1e-3
+python -m backend.scripts.seed_demo_user
+# 登录凭据: demo / demo123
 ```
 
-> Windows + CUDA 环境下，建议先不加 `--compile`。
-
-### Step 4: 生成离线评估
-
-```bash
-python -m backend.scripts.evaluate_itemcf
-python -m backend.scripts.evaluate_models --models all --ablation --k 10
-```
-
-### Step 5: 启动服务
+### 3.5 启动服务
 
 ```bash
 python backend/run.py
 ```
 
 访问：
+- 主应用：http://127.0.0.1:5000/app
+- 数据看板：http://127.0.0.1:5000/dashboard
+- 增强看板：http://127.0.0.1:5000/enhanced-dashboard
+- 管理后台：http://127.0.0.1:5000/admin
 
-- `http://127.0.0.1:5000/app`
-- `http://127.0.0.1:5000/dashboard`
+## 4. 推荐策略
 
-## 6. 离线评估产物
+| 策略 | URL 参数 | 说明 |
+|---|---|---|
+| ItemCF | `strategy=itemcf` | 默认，基于物品协同过滤 + 推荐理由 |
+| NCF | `strategy=ncf` | 神经网络协同过滤 |
+| Hybrid | `strategy=hybrid` | ItemCF 召回 + NCF 重排 |
 
-- `backend/artifacts/offline_metrics.json`（ItemCF）
-- `backend/artifacts/evaluation_results.json`（ItemCF / NCF / Hybrid + 消融）
-- `backend/artifacts/ncf.pt` 与 `backend/artifacts/ncf_meta.json`（NCF）
+冷启动用户返回热门电影兜底。
 
-## 7. 已知限制
+## 5. 项目结构
 
-- 当前主要是离线评估，尚无在线 A/B 测试。
-- NCF/Hybrid 在当前数据规模下不一定优于 ItemCF。
-- 若离线指标接口 404，需先运行评估脚本生成 artifacts 文件。
+```
+backend/
+├── app/
+│   ├── routes.py              # 核心 API（70+ 端点）
+│   ├── admin_routes.py        # 管理后台 API
+│   ├── models.py              # 数据库模型（12表）
+│   ├── ncf_engine.py          # NCF 推理引擎
+│   ├── services/              # 用户画像服务
+│   ├── templates/             # Jinja2 模板（38页面）
+│   └── static/                # 前端静态资源
+├── scripts/
+│   ├── import_fast.py         # ml-32m 快速导入
+│   ├── import_movielens.py    # 通用 MovieLens 导入
+│   ├── train_itemcf.py        # ItemCF 训练
+│   ├── train_ncf.py           # NCF 训练
+│   ├── evaluate_models.py     # 多模型评估 + 消融实验
+│   ├── evaluate_itemcf.py     # ItemCF 单项评估
+│   └── seed_demo_user.py      # 演示用户创建
+└── artifacts/                 # 模型与评估产物
+```
 
-## 8. 文档入口
+## 6. 系统功能
 
-- 论文材料框架：`docs/毕业设计说明.md`
-- 演示彩排清单：`docs/演示彩排清单.md`
-- 答辩高频问答：`docs/答辩高频问答.md`
+- 用户系统：注册/登录/权限管理/用户画像
+- 电影管理：搜索/详情/评分/相似电影
+- 推荐引擎：ItemCF / NCF / Hybrid + 推荐解释
+- 数据看板：评分分布/类型分布/年份趋势/离线指标
+- 社交功能：影评/收藏/影单/评论互动
+- 管理后台：电影/用户/评论/通知/权限/元数据管理
+- 数据导出：用户数据/系统统计/完整备份
+- 通知系统：系统通知/评论通知/推荐通知/成就通知
