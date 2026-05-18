@@ -659,6 +659,7 @@ def permission_management():
 @admin_required
 def permission_stats():
     """权限统计API"""
+    from sqlalchemy import func
     try:
         # 总用户数
         total_users = User.query.count()
@@ -771,6 +772,7 @@ def notification_management():
 @admin_required
 def notification_stats():
     """通知统计API"""
+    from sqlalchemy import func
     try:
         from backend.app.models import Notification
         from datetime import datetime

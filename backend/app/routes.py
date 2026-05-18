@@ -1705,6 +1705,7 @@ def export_system_stats():
 @admin_required
 def export_movie_data():
     """电影数据导出 - 管理员功能"""
+    from sqlalchemy import func
     try:
         format_type = request.args.get('format', 'json')
         include_ratings = request.args.get('include_ratings', 'false').lower() == 'true'
