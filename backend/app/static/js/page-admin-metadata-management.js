@@ -14,38 +14,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentPage = 1;
   let currentFilters = {};
 
-  function escapeHtml(value) {
-    const div = document.createElement('div');
-    div.textContent = value == null ? '' : String(value);
-    return div.innerHTML;
-  }
-
-  function showAlert(type, message) {
-    const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    alert.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-    alert.innerHTML = `
-      ${escapeHtml(message)}
-      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-    document.body.appendChild(alert);
-    setTimeout(() => {
-      if (alert.parentNode) alert.parentNode.removeChild(alert);
-    }, 3000);
-  }
-
-  function formatDate(dateString) {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  }
-
   function getMetadataStatusBadge(movie) {
     const hasTitle = movie.title;
     const hasYear = movie.year;
@@ -80,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch(`/admin/api/movies-metadata?${params}`);
       const data = await response.json();
       renderMoviesTable(data.movies || []);
-      renderPagination(data.pagination || { pages: 1, page: 1, has_prev: false, has_next: false });
+      renderPagination(paginationEl, data.pagination, (page) => { currentPage = page; loadMovies(); });
     } catch (error) {
       console.error('加载电影列表失败:', error);
       if (moviesTableBody) {
@@ -143,29 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </td>
       </tr>
     `).join('');
-  }
-
-  function renderPagination(pagination) {
-    if (!paginationEl) return;
-    const pages = pagination.pages || 1;
-    const page = pagination.page || 1;
-    if (pages <= 1) {
-      paginationEl.innerHTML = '';
-      return;
-    }
-    let html = '';
-    if (pagination.has_prev) {
-      html += `<li class="page-item"><button type="button" class="page-link" data-page="${page - 1}">上一页</button></li>`;
-    }
-    const startPage = Math.max(1, page - 2);
-    const endPage = Math.min(pages, page + 2);
-    for (let i = startPage; i <= endPage; i += 1) {
-      html += `<li class="page-item ${i === page ? 'active' : ''}"><button type="button" class="page-link" data-page="${i}">${i}</button></li>`;
-    }
-    if (pagination.has_next) {
-      html += `<li class="page-item"><button type="button" class="page-link" data-page="${page + 1}">下一页</button></li>`;
-    }
-    paginationEl.innerHTML = html;
   }
 
   function showModal(element) {
@@ -248,11 +193,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function pollTaskProgress(taskId) {
+  async function pollTaskProgress(taskId, retryCount = 0) {
+    const MAX_RETRIES = 120;
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
     const progressDetail = document.getElementById('progressDetail');
     if (!progressBar || !progressText || !progressDetail) return;
+
+    if (retryCount >= MAX_RETRIES) {
+      showAlert('warning', '任务处理超时，请稍后手动刷新查看结果');
+      return;
+    }
 
     try {
       const response = await fetch(`/admin/api/task-progress/${taskId}`);
@@ -262,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
       progressText.textContent = result.message || '处理中...';
       progressDetail.textContent = result.detail || '';
       if (!result.completed) {
-        setTimeout(() => pollTaskProgress(taskId), 1000);
+        setTimeout(() => pollTaskProgress(taskId, retryCount + 1), 1000);
       } else {
         showAlert('success', '处理完成');
         loadMovies();
@@ -299,18 +250,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (editButton) {
         const id = Number(editButton.dataset.id);
         if (!Number.isNaN(id)) editMovie(id);
-      }
-    });
-  }
-
-  if (paginationEl) {
-    paginationEl.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-page]');
-      if (!button) return;
-      const page = Number(button.dataset.page);
-      if (!Number.isNaN(page)) {
-        currentPage = page;
-        loadMovies();
       }
     });
   }

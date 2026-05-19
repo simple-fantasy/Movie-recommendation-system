@@ -43,6 +43,7 @@
         heroMovie: null,
         heroLoading: true,
         heroError: false,
+        heroPosterFailed: false,
         heroPool: [],
         heroIndex: 0,
 
@@ -65,6 +66,9 @@
         searchResults: [],
         searchLoading: false,
         searched: false,
+        searchSuggestions: [],
+        showSuggestions: false,
+        searchTags: ['动作', '喜剧', '科幻', '悬疑', '爱情', '动画', '恐怖', '剧情'],
 
         // Genre discovery
         genrePills: [
@@ -78,7 +82,34 @@
         // Quick-rate modal
         rateTarget: null,
         newRating: 0,
+
+        // Cold-start wizard
+        showColdStartWizard: false,
+        coldStartMovies: [],
+        coldStartLoading: false,
+        coldStartRatings: {},
+        coldStartStep: 0,
       };
+    },
+
+    computed: {
+      heroGradStyle() {
+        const title = (this.heroMovie && this.heroMovie.title) || '';
+        return posterGradientStyle(title);
+      },
+      heroInitial() {
+        const title = (this.heroMovie && this.heroMovie.title) || '';
+        return posterInitial(title);
+      },
+      coldStartProgress() {
+        return Math.min(this.myRatings.length, 5);
+      },
+      coldStartComplete() {
+        return this.myRatings.length >= 5;
+      },
+      coldStartRemaining() {
+        return Math.max(5 - this.myRatings.length, 0);
+      },
     },
 
     created() {
@@ -89,10 +120,8 @@
     async mounted() {
       await this.checkAuth();
 
-      // Fire all independent data fetches in parallel
-      this.loadHero();
-      this.loadRecommendations();
-      this.loadPopular();
+      // All sections from ONE recommendation API call
+      this.loadAllContent();
 
       if (this.user) {
         this.loadMyRatings();
@@ -116,97 +145,73 @@
         }
       },
 
-      // ── Hero ──────────────────────────────────────
+      // ── ALL sections from ONE fast recommendation API call ──
 
-      async loadHero() {
+      async loadAllContent() {
         this.heroLoading = true;
+        this.recsLoading = true;
+        this.popularLoading = true;
         this.heroError = false;
+        this.recsError = false;
+        this.popularError = false;
+        this.heroPosterFailed = false;
+
         try {
-          const movies = await api('/api/movies/popular?limit=5');
-          if (movies && movies.length) {
-            this.heroPool = movies.map(normalizeMovie);
+          // Single API call — recommendation engine is precomputed, much faster than /api/movies/popular
+          const data = await api('/api/recommendations?n=50&strategy=hybrid');
+          const list = Array.isArray(data) ? data : data.recommendations || [];
+          const normalized = list.map(normalizeMovie);
+
+          if (normalized.length > 0) {
+            this.recsIsPersonalized = true;
+            // Hero: first 5 for carousel
+            this.heroPool = normalized.slice(0, 5);
             this.heroIndex = 0;
             this.heroMovie = this.heroPool[0];
-            // Enrich with detail
-            try {
-              const detail = await api('/api/movies/' + this.heroMovie.id);
-              if (detail) {
-                this.heroMovie = { ...this.heroMovie, ...normalizeMovie(detail) };
-              }
-            } catch (e) { /* ignore detail failure */ }
+            // Recommendations: next 20
+            this.recommendations = normalized.slice(0, 20);
+            // Popular: last 20 (items 20-40)
+            this.popular = normalized.slice(20, 40);
           } else {
             this.heroMovie = {
               id: null, title: '欢迎来到 CineMatch', poster: '', backdrop: '',
-              overview: '电影数据库正在准备中。', year: null, avg_rating: null,
+              overview: '评分更多电影来获取推荐。', year: null, avg_rating: null,
             };
+            this.recommendations = [];
+            this.popular = [];
           }
         } catch (e) {
-          console.error('Hero load failed', e);
-          this.heroError = true;
-          this.heroMovie = {
-            id: null, title: '欢迎来到 CineMatch', poster: '', backdrop: '',
-            overview: '加载失败，请刷新页面重试。', year: null, avg_rating: null,
-          };
+          console.error('Content load failed', e);
+          // Fallback to popular API if recommendation engine fails
+          try {
+            const fallback = await api('/api/movies/popular?limit=25');
+            const fb = (fallback || []).map(normalizeMovie);
+            this.heroPool = fb.slice(0, 5);
+            this.heroIndex = 0;
+            this.heroMovie = this.heroPool[0] || { id: null, title: 'CineMatch', poster: '', backdrop: '', overview: '', year: null };
+            this.recommendations = fb.slice(0, 20);
+            this.popular = fb.slice(5, 25);
+            this.recsIsPersonalized = false;
+          } catch (e2) {
+            this.heroError = true;
+            this.recsError = true;
+            this.popularError = true;
+            this.heroMovie = { id: null, title: '欢迎来到 CineMatch', poster: '', backdrop: '', overview: '加载失败，请刷新页面重试。', year: null, avg_rating: null };
+            this.recommendations = [];
+            this.popular = [];
+          }
         } finally {
           this.heroLoading = false;
+          this.recsLoading = false;
+          this.popularLoading = false;
         }
       },
 
       nextHero() {
         if (!this.heroPool.length) return;
         this.heroIndex = (this.heroIndex + 1) % this.heroPool.length;
-        const next = this.heroPool[this.heroIndex];
-        this.heroMovie = next;
-        // Try loading detail for this hero too
-        api('/api/movies/' + next.id)
-          .then((detail) => {
-            if (detail) {
-              this.heroMovie = { ...this.heroMovie, ...normalizeMovie(detail) };
-            }
-          })
-          .catch(() => {});
-      },
-
-      // ── Recommendations ───────────────────────────
-
-      async loadRecommendations() {
-        this.recsLoading = true;
-        this.recsError = false;
-        try {
-          let data;
-          if (this.user) {
-            data = await api('/api/recommendations?n=20&strategy=hybrid');
-            this.recsIsPersonalized = true;
-          } else {
-            data = await api('/api/movies/popular?limit=20');
-            this.recsIsPersonalized = false;
-          }
-          const list = Array.isArray(data) ? data : data.recommendations || [];
-          this.recommendations = list.map(normalizeMovie);
-        } catch (e) {
-          this.recommendations = [];
-          if (!(e.response && e.response.status === 401)) {
-            this.recsError = true;
-          }
-        } finally {
-          this.recsLoading = false;
-        }
-      },
-
-      // ── Popular ───────────────────────────────────
-
-      async loadPopular() {
-        this.popularLoading = true;
-        this.popularError = false;
-        try {
-          const movies = await api('/api/movies/popular?limit=20');
-          this.popular = (movies || []).map(normalizeMovie);
-        } catch (e) {
-          this.popular = [];
-          this.popularError = true;
-        } finally {
-          this.popularLoading = false;
-        }
+        this.heroMovie = this.heroPool[this.heroIndex];
+        this.heroPosterFailed = false;
       },
 
       // ── My Ratings ────────────────────────────────
@@ -237,6 +242,35 @@
       onSearchInput() {
         this.searched = true;
         this._doSearchDebounced();
+        this.fetchSuggestions();
+      },
+
+      async fetchSuggestions() {
+        const q = this.searchQuery.trim();
+        if (!q) {
+          this.searchSuggestions = [];
+          this.showSuggestions = false;
+          return;
+        }
+        try {
+          const data = await api('/api/search/suggestions?q=' + encodeURIComponent(q));
+          this.searchSuggestions = (data.suggestions || []).slice(0, 6);
+          this.showSuggestions = this.searchSuggestions.length > 0;
+        } catch (e) {
+          this.searchSuggestions = [];
+          this.showSuggestions = false;
+        }
+      },
+
+      selectSuggestion(title) {
+        this.searchQuery = title;
+        this.showSuggestions = false;
+        this.doSearch();
+      },
+
+      searchByTag(tag) {
+        this.searchQuery = tag;
+        this.doSearch();
       },
 
       async doSearch() {
@@ -458,6 +492,74 @@
               '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted"><i class="ph ph-calendar" style="font-size:2rem;margin-bottom:0.5rem;"></i><span>暂无时间线数据</span></div>';
           }
         }
+      },
+
+      // ── Cold-start wizard ────────────────────────
+
+      async openColdStartWizard() {
+        this.coldStartLoading = true;
+        this.showColdStartWizard = true;
+        this.coldStartStep = 0;
+        this.coldStartRatings = {};
+        try {
+          const movies = await api('/api/movies/popular?limit=10');
+          // Filter out already-rated movies
+          const ratedIds = new Set(this.myRatings.map(r => r.id || r.movie_id));
+          this.coldStartMovies = (movies || [])
+            .map(normalizeMovie)
+            .filter(m => !ratedIds.has(m.id))
+            .slice(0, 5);
+        } catch (e) {
+          showToast('加载推荐电影失败', 'error');
+          this.showColdStartWizard = false;
+        } finally {
+          this.coldStartLoading = false;
+        }
+      },
+
+      closeColdStartWizard() {
+        this.showColdStartWizard = false;
+        this.coldStartMovies = [];
+        this.coldStartRatings = {};
+      },
+
+      setColdStartRating(movie, rating) {
+        const id = movie.id || movie.movie_id;
+        this.coldStartRatings = { ...this.coldStartRatings, [id]: rating };
+      },
+
+      async submitColdStartRatings() {
+        const entries = Object.entries(this.coldStartRatings);
+        if (!entries.length) {
+          showToast('请至少评分一部电影', 'error');
+          return;
+        }
+        try {
+          for (const [movieId, rating] of entries) {
+            await api('/api/ratings', {
+              method: 'POST',
+              body: { movie_id: Number(movieId), rating },
+            });
+          }
+          showToast(`已提交 ${entries.length} 条评分！正在刷新推荐...`, 'success');
+          this.showColdStartWizard = false;
+          this.coldStartMovies = [];
+          this.coldStartRatings = {};
+          await this.loadMyRatings();
+          await this.loadRecommendations();
+          // Reload persona/timeline charts if now we have enough data
+          this.$nextTick(() => {
+            this.loadPersonaChart();
+            this.loadTimelineChart();
+          });
+        } catch (e) {
+          showToast(e.message || '提交失败，请重试', 'error');
+        }
+      },
+
+      coldStartMovieRated(movie) {
+        const id = movie.id || movie.movie_id;
+        return (this.coldStartRatings[id] || 0) > 0;
       },
 
       // ── Helpers ───────────────────────────────────

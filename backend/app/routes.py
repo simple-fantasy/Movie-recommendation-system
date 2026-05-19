@@ -358,6 +358,7 @@ def popular_movies():
             db.func.count(Rating.id).label("rating_count"),
         )
         .outerjoin(Rating, Rating.movie_id == Movie.id)
+        .filter(Movie.poster_url.isnot(None), Movie.poster_url != "", db.not_(Movie.poster_url.contains("placeholder")))
         .group_by(Movie.id)
     )
     if min_count > 0:
@@ -559,6 +560,9 @@ def _format_recommendations(
         m = movie_map.get(mid)
         if m is None:
             continue
+        # 只展示有海报的电影（确保演示效果）
+        if not m.poster_url or "placeholder" in str(m.poster_url):
+            continue
 
         seeds = contributions.get(mid, {})
         top_seeds = sorted(seeds.items(), key=lambda x: x[1], reverse=True)[:3]
@@ -583,7 +587,9 @@ def _format_recommendations(
                 "title": m.title,
                 "year": m.year,
                 "genres": m.genres,
-                "avg_rating": float(score),
+                "avg_rating": float(m.avg_rating or 0),
+                "rating_count": int(m.rating_count or 0),
+                "score": float(score),  # recommendation engine score (for ranking only)
                 "poster": m.poster_url,
                 "backdrop": m.backdrop_url,
                 "overview": m.description,
@@ -595,11 +601,13 @@ def _format_recommendations(
 
 
 def _get_popular_fallback(top_n: int) -> list[dict]:
-    """Return popular movies as fallback for cold users. Returns normalized fields."""
+    """Return popular movies as fallback for cold users. Only movies with posters and >=50 ratings."""
     movies = (
         db.session.query(Movie, db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"), db.func.count(Rating.id).label("cnt"))
         .outerjoin(Rating, Rating.movie_id == Movie.id)
+        .filter(Movie.poster_url.isnot(None), Movie.poster_url != "", db.not_(Movie.poster_url.contains("placeholder")))
         .group_by(Movie.id)
+        .having(db.func.count(Rating.id) >= 50)
         .order_by(db.desc("avg_rating"), db.desc("cnt"))
         .limit(top_n)
         .all()
@@ -612,6 +620,7 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
             "genres": m.genres,
             "avg_rating": float(avg),
             "rating_count": int(cnt),
+            "score": None,  # no recommendation score for popular fallback
             "poster": m.poster_url,
             "backdrop": m.backdrop_url,
             "overview": m.description,
@@ -886,6 +895,173 @@ def stats_movie_rating_counts():
         labels.append(f"{bins[i-1]+1}-{bins[i]}")
     labels.append(f">{bins[-1]}")
     return jsonify({"labels": labels, "values": counts})
+
+
+# ==================== 统一数据看板 API ====================
+
+@bp.get("/api/dashboard/overview")
+@cache.cached(timeout=120)  # 缓存2分钟
+def dashboard_overview():
+    """聚合所有看板数据，单次请求替代多次独立调用"""
+    from pathlib import Path
+    import json as _json
+
+    result = {
+        "offline_metrics": None,
+        "multi_model": None,
+        "stats": {},
+    }
+
+    # ── 离线评估指标 ──
+    offline_path = Path(__file__).resolve().parents[1] / "artifacts" / "offline_metrics.json"
+    try:
+        if offline_path.exists():
+            result["offline_metrics"] = _json.loads(offline_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    # ── 多模型评估 ──
+    eval_path = Path(__file__).resolve().parents[1] / "artifacts" / "evaluation_results.json"
+    try:
+        if eval_path.exists():
+            result["multi_model"] = _json.loads(eval_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+
+    # ── 评分分布 ──
+    try:
+        dist = (
+            db.session.query(
+                db.func.round(Rating.rating * 2) / 2,  # 分桶为 0.5 步长
+                db.func.count(Rating.id),
+            )
+            .group_by(db.func.round(Rating.rating * 2) / 2)
+            .order_by(db.func.round(Rating.rating * 2) / 2)
+            .all()
+        )
+        result["stats"]["ratings"] = {
+            "labels": [str(float(r)) for r, _ in dist],
+            "values": [int(c) for _, c in dist],
+        }
+    except Exception:
+        result["stats"]["ratings"] = None
+
+    # ── 类型占比 ──
+    try:
+        genre_pairs = (
+            db.session.query(Movie.genres)
+            .filter(Movie.genres.isnot(None), Movie.genres != "")
+            .all()
+        )
+        genre_counts: dict[str, int] = {}
+        for (g,) in genre_pairs:
+            for name in str(g).split("|"):
+                name = name.strip()
+                if name:
+                    genre_counts[name] = genre_counts.get(name, 0) + 1
+        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
+        result["stats"]["genres"] = {
+            "labels": [n for n, _ in sorted_genres],
+            "values": [c for _, c in sorted_genres],
+        }
+    except Exception:
+        result["stats"]["genres"] = None
+
+    # ── 年份趋势 ──
+    try:
+        year_rows = (
+            db.session.query(
+                Movie.year,
+                db.func.count(Rating.id).label("cnt"),
+                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_r"),
+            )
+            .join(Rating, Rating.movie_id == Movie.id)
+            .filter(Movie.year.isnot(None), Movie.year > 1900)
+            .group_by(Movie.year)
+            .order_by(Movie.year)
+            .all()
+        )
+        result["stats"]["years"] = {
+            "years": [int(y) for y, _, _ in year_rows],
+            "counts": [int(c) for _, c, _ in year_rows],
+            "avg_ratings": [float(a) for _, _, a in year_rows],
+        }
+    except Exception:
+        result["stats"]["years"] = None
+
+    # ── 热门电影 ──
+    try:
+        popular = (
+            db.session.query(
+                Movie.title,
+                db.func.count(Rating.id).label("cnt"),
+                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_r"),
+            )
+            .join(Rating, Rating.movie_id == Movie.id)
+            .group_by(Movie.id)
+            .order_by(db.desc("cnt"))
+            .limit(12)
+            .all()
+        )
+        result["stats"]["popular"] = {
+            "labels": [t for t, _, _ in popular],
+            "counts": [int(c) for _, c, _ in popular],
+            "avg_ratings": [float(a) for _, _, a in popular],
+        }
+    except Exception:
+        result["stats"]["popular"] = None
+
+    # ── 活跃用户 ──
+    try:
+        active_users = (
+            db.session.query(
+                User.username,
+                db.func.count(Rating.id).label("cnt"),
+            )
+            .join(Rating, Rating.user_id == User.id)
+            .group_by(User.id)
+            .order_by(db.desc("cnt"))
+            .limit(12)
+            .all()
+        )
+        result["stats"]["user_activity"] = {
+            "labels": [u for u, _ in active_users],
+            "values": [int(c) for _, c in active_users],
+        }
+    except Exception:
+        result["stats"]["user_activity"] = None
+
+    # ── 电影评分次数分布 ──
+    try:
+        bins = [1, 2, 5, 10, 20, 50, 100, 200]
+        rows = (
+            db.session.query(Rating.movie_id, db.func.count(Rating.id).label("cnt"))
+            .group_by(Rating.movie_id)
+            .all()
+        )
+        bin_counts = [0 for _ in range(len(bins) + 1)]
+        for _mid, cnt in rows:
+            c = int(cnt)
+            placed = False
+            for i, b in enumerate(bins):
+                if c <= b:
+                    bin_counts[i] += 1
+                    placed = True
+                    break
+            if not placed:
+                bin_counts[-1] += 1
+        labels = [f"1-{bins[0]}"]
+        for i in range(1, len(bins)):
+            labels.append(f"{bins[i-1]+1}-{bins[i]}")
+        labels.append(f">{bins[-1]}")
+        result["stats"]["movie_rating_counts"] = {
+            "labels": labels,
+            "values": bin_counts,
+        }
+    except Exception:
+        result["stats"]["movie_rating_counts"] = None
+
+    return jsonify(result)
 
 
 # ==================== 管理员API ====================

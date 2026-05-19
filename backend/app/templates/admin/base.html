@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}管理后台{% endblock %} - CineMatch</title>
-    <link href="/static/vendor/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/static/vendor/bootstrap-icons.css">
+    <link href="/static/vendor/bootstrap.min.css?v=2" rel="stylesheet">
+    <link rel="stylesheet" href="/static/vendor/bootstrap-icons.css?v=2">
     <!-- Fonts: Google Fonts removed; system font stack in cinema-theme.css -->
-    <link href="/static/css/cinema-theme.css" rel="stylesheet">
+    <link href="/static/css/cinema-theme.css?v=2" rel="stylesheet">
     <style>
         :root {
             --sidebar-width: 260px;
@@ -528,8 +528,10 @@
         </div>
     </main>
 
-    <script src="/static/vendor/bootstrap.bundle.min.js"></script>
-    <script src="/static/js/page-admin-base.js" defer></script>
+    <script src="/static/vendor/bootstrap.bundle.min.js?v=2"></script>
+    <script src="/static/js/common.js?v=2" defer></script>
+    <script src="/static/js/admin-common.js?v=2" defer></script>
+    <script src="/static/js/page-admin-base.js?v=2" defer></script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

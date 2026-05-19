@@ -35,6 +35,9 @@ class TMDBService:
                 
                 if response.status_code == 200:
                     return response.json()
+                elif response.status_code == 404:
+                    # 资源不存在（tmdbId 过期），无需重试
+                    return {}
                 elif response.status_code == 429:
                     # 速率限制，等待后重试
                     wait_time = 2 * (attempt + 1)
@@ -124,7 +127,7 @@ class TMDBService:
             'genres': [g['name'] for g in details.get('genres', [])],
             'director': self._get_director(details.get('credits', {})),
             'actors': self._get_actors(details.get('credits', {})),
-            'poster_url': self._get_image_url(details.get('poster_path'), 'w500'),
+            'poster_url': self._get_image_url(details.get('poster_path'), 'w342'),
             'backdrop_url': self._get_image_url(details.get('backdrop_path'), 'w1280'),
             'trailer_url': None,  # 暂不支持预告片
             'language': details.get('original_language'),
@@ -146,7 +149,7 @@ class TMDBService:
         cast = credits.get('cast', [])
         return [actor.get('name') for actor in cast[:limit] if actor.get('name')]
     
-    def _get_image_url(self, image_path: Optional[str], size: str = 'w500') -> Optional[str]:
+    def _get_image_url(self, image_path: Optional[str], size: str = 'w342') -> Optional[str]:
         """获取图片完整URL"""
         if not image_path:
             return None

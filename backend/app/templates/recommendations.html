@@ -8,13 +8,14 @@
     position: relative;
     border-radius: 12px;
     overflow: hidden;
-    background: var(--cinema-surface);
-    border: 1px solid var(--cinema-border);
-    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s;
+    background: #1a1a1e;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s, border-color 0.3s;
   }
   .rec-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    border-color: rgba(229,160,13,0.3);
   }
 
   /* Rank badge */
@@ -33,31 +34,55 @@
   .rec-rank-2 { background: linear-gradient(135deg, #a3a3a3, #c0c0c0); color: #0a0a0a; }
   .rec-rank-3 { background: linear-gradient(135deg, #cd7f32, #d48f50); color: #0a0a0a; }
 
-  /* Poster */
+  /* Poster area */
   .rec-poster {
     position: relative;
     aspect-ratio: 2/3;
     overflow: hidden;
     cursor: pointer;
+    background: #1e1e22;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
   }
   .rec-poster img {
     width: 100%; height: 100%;
     object-fit: cover;
     transition: transform 0.35s ease;
+    background: #1e1e22;
   }
   .rec-card:hover .rec-poster img {
     transform: scale(1.06);
+  }
+
+  /* Poster placeholder (no poster available) */
+  .rec-poster-placeholder {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+  .rec-placeholder-icon {
+    font-size: 2rem;
+    opacity: 0.6;
+  }
+  .rec-placeholder-initial {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.3);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.3);
   }
 
   /* Hover overlay */
   .rec-overlay {
     position: absolute;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.65);
     display: flex; align-items: center; justify-content: center;
     gap: 0.5rem;
     opacity: 0;
     transition: opacity 0.25s ease;
+    z-index: 4;
   }
   .rec-card:hover .rec-overlay {
     opacity: 1;
@@ -86,21 +111,23 @@
     border-color: var(--cinema-accent);
   }
 
-  /* Info */
+  /* Info area — always visible */
   .rec-info {
     padding: 0.75rem;
+    background: #1a1a1e;
   }
   .rec-title {
     font-size: 0.9rem; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     cursor: pointer; margin: 0 0 0.35rem;
-    color: var(--cinema-text);
+    color: #e5e5e5;
     transition: color 0.2s;
+    line-height: 1.4;
   }
   .rec-title:hover { color: var(--cinema-accent); }
   .rec-meta {
     display: flex; align-items: center; gap: 0.75rem;
-    font-size: 0.78rem; color: var(--cinema-text-secondary);
+    font-size: 0.78rem; color: #a3a3a3;
     margin-bottom: 0.35rem;
   }
   .rec-rating {
@@ -114,23 +141,98 @@
     font-size: 0.68rem;
     padding: 0.1rem 0.45rem;
     border-radius: 4px;
-    background: rgba(255,255,255,0.06);
-    color: var(--cinema-text-secondary);
-    border: 1px solid var(--cinema-border);
+    background: rgba(255,255,255,0.08);
+    color: #a3a3a3;
+    border: 1px solid rgba(255,255,255,0.08);
   }
 
   /* Why tooltip */
   .rec-why {
     padding: 0.5rem 0.75rem;
-    border-top: 1px solid var(--cinema-border);
-    font-size: 0.72rem; color: var(--cinema-text-muted);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.72rem; color: #a3a3a3;
     display: flex; align-items: flex-start; gap: 0.35rem;
     line-height: 1.4;
-    background: var(--cinema-surface-elevated);
+    background: #1e1e22;
     border-radius: 0 0 12px 12px;
   }
   .rec-why-loading {
     opacity: 0.6;
+  }
+
+  /* Match score badge */
+  .rec-match-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 5;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    backdrop-filter: blur(8px);
+  }
+  .rec-match-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .match-high {
+    background: rgba(34, 197, 94, 0.25);
+    color: #4ade80;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+  .match-high .rec-match-dot { background: #4ade80; }
+  .match-mid {
+    background: rgba(229, 160, 13, 0.2);
+    color: #f5b830;
+    border: 1px solid rgba(229, 160, 13, 0.25);
+  }
+  .match-mid .rec-match-dot { background: #f5b830; }
+  .match-ok {
+    background: rgba(163, 163, 163, 0.15);
+    color: #a3a3a3;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .match-ok .rec-match-dot { background: #a3a3a3; }
+
+  /* Skeleton loading card */
+  .rec-skeleton-card {
+    border-radius: 12px;
+    overflow: hidden;
+    background: #1a1a1e;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .rec-skeleton-card .rec-skeleton-poster {
+    aspect-ratio: 2/3;
+    background: linear-gradient(90deg, #1e1e22 0%, #2a2a2f 50%, #1e1e22 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite ease;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .rec-skeleton-card .rec-skeleton-info {
+    padding: 0.75rem;
+    background: #1a1a1e;
+  }
+  .rec-skeleton-card .rec-skeleton-line {
+    height: 0.85rem;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #1e1e22 0%, #2a2a2f 50%, #1e1e22 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite ease;
+    margin-bottom: 0.5rem;
+  }
+
+  @keyframes recFadeIn {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    from { background-position: -200% 0; }
+    to { background-position: 200% 0; }
   }
 
   /* Filter bar */
@@ -140,14 +242,22 @@
     border-radius: 10px;
     padding: 0.75rem 1rem;
   }
+
+  /* Page background texture */
+  .rec-page-bg {
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(229,160,13,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(229,80,20,0.03) 0%, transparent 40%),
+      #0e0e12;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="recApp">
+<div id="recApp" class="rec-page-bg" style="min-height:100vh;">
   <!-- Header -->
   <section class="position-relative overflow-hidden" style="padding: 3rem 0 1.5rem; margin-top: -60px; padding-top: calc(3rem + 60px);">
-    <div class="position-absolute inset-0" style="background: radial-gradient(ellipse at 50% 0%, rgba(229,160,13,0.08) 0%, transparent 60%); top:0; left:0; right:0; bottom:0;"></div>
+    <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:radial-gradient(ellipse at 50% 0%, rgba(229,160,13,0.08) 0%, transparent 60%);"></div>
     <div class="container position-relative">
       <div class="text-center mb-3">
         <div class="d-inline-flex align-items-center gap-2 mb-3 px-3 py-2 rounded-pill" style="background: rgba(229,160,13,0.1); border: 1px solid rgba(229,160,13,0.2);">
@@ -199,10 +309,16 @@
 
   <!-- Content Area -->
   <div class="container pb-5">
-    <!-- Loading -->
+    <!-- Loading skeleton -->
     <div v-if="loading" class="row g-4">
       <div v-for="n in 8" :key="n" class="col-6 col-md-4 col-lg-3">
-        <div class="loading-skeleton" style="aspect-ratio:2/3;border-radius:12px;"></div>
+        <div class="rec-skeleton-card">
+          <div class="rec-skeleton-poster"></div>
+          <div class="rec-skeleton-info">
+            <div class="rec-skeleton-line" style="width:80%;"></div>
+            <div class="rec-skeleton-line" style="width:50%;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -242,7 +358,7 @@
 
     <!-- Results Grid -->
     <div v-else-if="movies.length" class="row g-4">
-      <div v-for="(movie, idx) in movies" :key="movie.id" class="col-6 col-md-4 col-lg-3 fade-in-up">
+      <div v-for="(movie, idx) in movies" :key="movie.id" class="col-6 col-md-4 col-lg-3" style="animation: recFadeIn 0.5s ease forwards;" :style="{ animationDelay: (idx % 8) * 0.06 + 's' }">
         <recommendation-card
           :movie="movie"
           :rank="idx + 1"
@@ -251,6 +367,7 @@
           :why-loading="!!whyLoading[movie.id]"
           @click="goToMovie"
           @feedback="sendFeedback($event.movieId, $event.type)"
+          @watched="markWatched"
           @hover-why="fetchWhy"
         ></recommendation-card>
       </div>
@@ -258,10 +375,17 @@
 
     <!-- Empty / Guest CTA -->
     <div v-else-if="!loading && !error && !errorCode" class="text-center py-5">
-      <div class="glass-strong p-5 rounded-3 d-inline-block">
+      <div class="glass-strong p-5 rounded-3 d-inline-block" style="max-width:500px;">
         <div style="font-size: 3rem;">🎬</div>
         <h3 class="h4 fw-bold mt-3" v-text="user ? '暂无推荐结果' : '登录获取个性化推荐'"></h3>
-        <p class="text-muted" v-text="user ? '尝试切换推荐策略，或去评分更多电影。' : '登录并评分电影后，系统将为你生成专属推荐。'"></p>
+        <p class="text-muted" style="line-height:1.6;">
+          <template v-if="!user">
+            登录并对电影评分后，AI 将分析你的观影偏好，<br>为你生成专属个性化推荐。
+          </template>
+          <template v-else>
+            当前策略暂无推荐结果。<br>试试切换推荐策略，或去评分更多电影提升推荐质量。
+          </template>
+        </p>
         <a v-if="!user" href="/login" class="btn btn-cinema btn-lg">立即登录</a>
         <a v-else href="/app" class="btn btn-cinema">去评分</a>
       </div>
@@ -279,5 +403,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/page-recommendations.js" defer></script>
+<script src="/static/js/page-recommendations.js?v=14" defer></script>
 {% endblock %}

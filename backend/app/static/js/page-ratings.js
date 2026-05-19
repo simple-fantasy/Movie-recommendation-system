@@ -1,19 +1,3 @@
-function renderStars(rating) {
-  const fullStars = Math.floor(rating);
-  const halfStar = rating % 1 >= 0.5;
-  let stars = '';
-  for (let i = 1; i <= 5; i++) {
-    if (i <= fullStars) {
-      stars += '★';
-    } else if (i === fullStars + 1 && halfStar) {
-      stars += '½';
-    } else {
-      stars += '☆';
-    }
-  }
-  return `<span class="rating-star">${stars}</span> <span class="small-note">(${rating})</span>`;
-}
-
 async function loadRatings() {
   const list = document.getElementById('ratings-list');
   if (!list) return;
@@ -74,7 +58,7 @@ async function loadRatings() {
           <div class="d-flex justify-content-between align-items-start">
             <div class="flex-grow-1">
               <div class="fw-semibold">${escapeHtml(title)}</div>
-              <div class="small-note mt-1">${renderStars(r.rating)}</div>
+              <div class="small-note mt-1">${renderStars(r.rating)} <span class="small-note">(${r.rating})</span></div>
               <div class="small-note">${escapeHtml(r.genres || '未分类')} | ID: ${r.movie_id}</div>
               <div class="small-note">评分于 ${timeStr}</div>
             </div>

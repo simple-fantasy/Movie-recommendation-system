@@ -1,10 +1,7 @@
 function escapeHtml(value) {
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+  const div = document.createElement('div');
+  div.textContent = value == null ? '' : String(value);
+  return div.innerHTML;
 }
 
 function formatMovieTitle(title) {
@@ -91,6 +88,26 @@ function debounce(fn, wait = 300) {
   };
 }
 
+// Utility: render star rating HTML
+function renderStars(rating) {
+  if (rating == null) return '';
+  const fullStars = Math.floor(rating);
+  const halfStar = rating % 1 >= 0.5;
+  let stars = '';
+  for (let i = 1; i <= 5; i++) {
+    if (i <= fullStars) stars += '★';
+    else if (i === fullStars + 1 && halfStar) stars += '½';
+    else stars += '☆';
+  }
+  return `<span class="rating-star">${stars}</span>`;
+}
+
+// Utility: translate genre English → Chinese
+function formatGenre(genre) {
+  const map = window.GENRE_MAP || {};
+  return map[genre] || genre;
+}
+
 // Utility: format number
 function formatNumber(n) {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
@@ -104,6 +121,8 @@ function formatNumber(n) {
  */
 function normalizeMovie(raw) {
   if (!raw || typeof raw !== 'object') return { id: null, title: '未知电影', year: null, genres: '', avg_rating: null, rating_count: 0, poster: null, backdrop: null, overview: null };
+  const posterUrl = raw.poster || raw.poster_url || null;
+  const backdropUrl = raw.backdrop || raw.backdrop_url || null;
   return {
     id: raw.id || raw.movie_id || null,
     title: raw.title || raw.name || '未知电影',
@@ -111,8 +130,10 @@ function normalizeMovie(raw) {
     genres: raw.genres || '',
     avg_rating: raw.avg_rating !== undefined && raw.avg_rating !== null ? raw.avg_rating : (raw.score !== undefined && raw.score !== null ? raw.score : null),
     rating_count: raw.rating_count || 0,
-    poster: raw.poster || raw.poster_url || null,
-    backdrop: raw.backdrop || raw.backdrop_url || null,
+    poster: optimizePosterUrl(posterUrl, 'w342'),
+    poster_original: posterUrl,
+    backdrop: optimizePosterUrl(backdropUrl, 'w780'),
+    backdrop_original: backdropUrl,
     overview: raw.overview || raw.description || null,
     user_rating: raw.user_rating || raw.rating || null,
     director: raw.director || null,
@@ -142,6 +163,16 @@ function _hashStr(str) {
 function hasValidPoster(url) {
   if (!url || typeof url !== 'string') return false;
   return url.startsWith('http') && !url.includes('placeholder') && !url.includes('no-poster');
+}
+
+/**
+ * Rewrite TMDB image URL to a smaller/larger size for performance.
+ * TMDB sizes: w92, w154, w185, w342, w500, w780, w1280, original
+ * Default: w342 (good for cards up to ~300px wide on 2x displays)
+ */
+function optimizePosterUrl(url, size) {
+  if (!url || !url.includes('image.tmdb.org/t/p/')) return url;
+  return url.replace(/\/t\/p\/\w+\//, '/t/p/' + (size || 'w342') + '/');
 }
 
 function posterGradientStyle(title) {

@@ -111,15 +111,25 @@ def sample_eval_negs_row(
 
 
 def load_interactions(min_ratings_per_user: int, val_ratio: float = 0.1, user_mod: int = 1) -> tuple[np.ndarray, np.ndarray, dict[int, int], dict[int, int]]:
-    rows = (
-        Rating.query.with_entities(Rating.user_id, Rating.movie_id, Rating.rating, Rating.timestamp, Rating.id)
-        .order_by(Rating.user_id.asc(), Rating.timestamp.asc(), Rating.id.asc())
-        .all()
-    )
+    from backend.app.models import User
+    if user_mod > 1:
+        # 两步查询：先从 users 表获取符合条件的用户 ID（利用索引），避免全表扫描 ratings
+        user_ids = [r[0] for r in db.session.query(User.id).filter(User.id % user_mod == 0).all()]
+        if not user_ids:
+            raise SystemExit("no users match user_mod filter")
+        q = (
+            Rating.query.with_entities(Rating.user_id, Rating.movie_id, Rating.rating, Rating.timestamp, Rating.id)
+            .filter(Rating.user_id.in_(user_ids))
+            .order_by(Rating.user_id.asc(), Rating.timestamp.asc(), Rating.id.asc())
+        )
+    else:
+        q = (
+            Rating.query.with_entities(Rating.user_id, Rating.movie_id, Rating.rating, Rating.timestamp, Rating.id)
+            .order_by(Rating.user_id.asc(), Rating.timestamp.asc(), Rating.id.asc())
+        )
+    rows = q.all()
     by_user: dict[int, list[tuple[int, float, object, int]]] = {}
     for uid, mid, r, ts, rid in rows:
-        if int(uid) % user_mod != 0:
-            continue
         by_user.setdefault(int(uid), []).append((int(mid), float(r), ts, int(rid)))
 
     by_user = {uid: items for uid, items in by_user.items() if len(items) >= min_ratings_per_user}

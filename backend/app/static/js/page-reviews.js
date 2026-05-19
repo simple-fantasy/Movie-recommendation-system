@@ -1,20 +1,3 @@
-function renderStars(rating) {
-  if (!rating) return '';
-  const fullStars = Math.floor(rating);
-  const halfStar = rating % 1 >= 0.5;
-  let stars = '';
-  for (let i = 1; i <= 5; i++) {
-    if (i <= fullStars) {
-      stars += '★';
-    } else if (i === fullStars + 1 && halfStar) {
-      stars += '½';
-    } else {
-      stars += '☆';
-    }
-  }
-  return `<span class="rating-star">${stars}</span>`;
-}
-
 function getStatusBadge(status) {
   const badges = {
     approved: { class: 'bg-green-100 text-green-700', text: '已通过' },

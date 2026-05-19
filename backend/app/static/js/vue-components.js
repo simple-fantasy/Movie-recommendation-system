@@ -2,7 +2,7 @@
    CineMatch Vue 3 Components (Global Build)
    ========================================= */
 
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp } = Vue;
 
 /* ---------- StarRating ---------- */
 const StarRating = {
@@ -33,6 +33,11 @@ const StarRating = {
   },
   methods: {
     onClick(n) {
+      // Ripple animation
+      this.$el.querySelectorAll('.star')[n - 1]?.classList.add('star-ripple');
+      setTimeout(() => {
+        this.$el.querySelectorAll('.star')[n - 1]?.classList.remove('star-ripple');
+      }, 400);
       this.$emit('update:modelValue', n);
       this.$emit('rate', n);
     }
@@ -50,7 +55,7 @@ const MovieCard = {
   components: { StarRating },
   template: `
     <div class="movie-card" @click="onCardClick">
-      <img v-if="showPoster" :src="posterUrl" :alt="displayTitle" loading="lazy"
+      <img v-if="showPoster" :src="posterUrl" :alt="displayTitle"
            @error="onPosterError">
       <div v-else class="poster-gradient" :style="gradStyle">
         <span class="poster-initial">{{ initial }}</span>
@@ -85,7 +90,8 @@ const MovieCard = {
       return formatMovieTitle(this.movie.title || this.movie.name || '未知电影');
     },
     posterUrl() {
-      return this.movie.poster || this.movie.poster_url || null;
+      const url = this.movie.poster || this.movie.poster_url || null;
+      return optimizePosterUrl(url, 'w342');
     },
     showPoster() {
       return !this.posterFailed && hasValidPoster(this.posterUrl);
@@ -106,8 +112,12 @@ const MovieCard = {
     onCardClick() {
       this.$emit('click', this.movie);
     },
-    onPosterError() {
+    onImgLoad(e) {
+      e.target.classList.add('loaded');
+    },
+    onPosterError(e) {
       this.posterFailed = true;
+      if (e.target) e.target.classList.add('loaded');
     },
     goToDetail() {
       window.location.href = '/movie/' + this.movie.id;
@@ -217,20 +227,6 @@ const SkeletonGrid = {
     </div>
   `
 };
-
-/* =========================================
-   Global helpers
-   ========================================= */
-
-function initCinemaVueApps() {
-  // Auto-scan for elements with data-vue-app attribute
-  document.querySelectorAll('[data-vue-app]').forEach(el => {
-    const appName = el.dataset.vueApp;
-    if (window[appName]) {
-      window[appName].mount(el);
-    }
-  });
-}
 
 // Expose components globally
 window.CinemaComponents = {

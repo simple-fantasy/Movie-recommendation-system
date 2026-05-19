@@ -68,7 +68,7 @@ def fetch_posters(limit: int | None = None, wait: float = 0.25, poster_only: boo
                 backdrop_path = details.get("backdrop_path")
 
                 if poster_path:
-                    movie.poster_url = tmdb._get_image_url(poster_path, "w500")
+                    movie.poster_url = tmdb._get_image_url(poster_path, "w342")
 
                 if not poster_only:
                     if details.get("overview"):

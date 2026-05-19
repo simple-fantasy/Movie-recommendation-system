@@ -11,12 +11,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let displayedLogs = [];
   const LOGS_PER_PAGE = 50;
 
-  function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-  }
-
   function createLogEntry(log) {
     const div = document.createElement('div');
     div.className = `log-entry ${String(log.level || 'INFO').toLowerCase()}`;

@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     loadLists(1);
   }
 
+  const debouncedSearch = debounce(handleSearch, 300);
+
   function loadMoreLists() {
     if (!hasMore) return;
     loadLists(currentPage + 1);
@@ -33,8 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
         url += `&search=${encodeURIComponent(searchQuery)}`;
       }
 
-      const res = await fetch(url);
-      const data = await res.json();
+      const data = await api(url);
 
       if (data.movie_lists) {
         if (page === 1) {
@@ -110,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (searchInput) {
-    searchInput.addEventListener('keyup', handleSearch);
+    searchInput.addEventListener('keyup', debouncedSearch);
   }
   if (loadMoreBtn) {
     loadMoreBtn.addEventListener('click', loadMoreLists);

@@ -5,8 +5,7 @@ let isLiked = false;
 
 async function loadList() {
   try {
-    const response = await fetch(`/api/movie-lists/${listId}`);
-    const data = await response.json();
+    const data = await api(`/api/movie-lists/${listId}`);
 
     if (data.movie_list) {
       listData = data.movie_list;
@@ -86,8 +85,7 @@ function displayMovies(movies) {
 
 async function loadComments() {
   try {
-    const response = await fetch(`/api/movie-lists/${listId}/comments`);
-    const data = await response.json();
+    const data = await api(`/api/movie-lists/${listId}/comments`);
 
     if (data.comments) {
       displayComments(data.comments);
@@ -132,13 +130,9 @@ function displayComments(comments) {
 
 async function toggleLike() {
   try {
-    const response = await fetch(`/api/movie-lists/${listId}/like`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+    const data = await api(`/api/movie-lists/${listId}/like`, {
+      method: 'POST'
     });
-    const data = await response.json();
 
     if (data.success) {
       isLiked = data.liked;
@@ -164,14 +158,10 @@ async function submitComment() {
   }
 
   try {
-    const response = await fetch(`/api/movie-lists/${listId}/comments`, {
+    const data = await api(`/api/movie-lists/${listId}/comments`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ content })
+      body: { content }
     });
-    const data = await response.json();
 
     if (data.success) {
       input.value = '';

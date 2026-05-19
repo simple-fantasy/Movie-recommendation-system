@@ -22,18 +22,26 @@
       whyText: { type: String, default: null },
       whyLoading: { type: Boolean, default: false },
     },
-    emits: ['click', 'feedback', 'hover-why'],
+    emits: ['click', 'feedback', 'watched', 'hover-why'],
     template: `
       <div class="rec-card h-100">
         <!-- Rank badge (top 3 only) -->
         <div v-if="rank <= 3 && rank >= 1" class="rec-rank" :class="'rec-rank-' + rank">#{{ rank }}</div>
 
-        <!-- Poster -->
+        <!-- Match score badge -->
+        <div v-if="matchScore != null" class="rec-match-badge" :class="matchLevel">
+          <span class="rec-match-dot"></span>
+          {{ matchScore }}% 匹配
+        </div>
+
+        <!-- Poster area -->
         <div class="rec-poster" @click="$emit('click', movie)">
-          <img v-if="showPoster" :src="movie.poster" :alt="movie.title" loading="lazy"
-               @error="posterFailed = true" />
-          <div v-else class="poster-gradient" :style="gradStyle">
-            <span class="poster-initial">{{ initial }}</span>
+          <img v-if="showPoster" :src="posterSrc"
+               :alt="formatTitle(movie.title)" 
+               @error="onPosterError" />
+          <div v-else class="rec-poster-placeholder" :style="gradStyle">
+            <span class="rec-placeholder-icon">🎬</span>
+            <span class="rec-placeholder-initial">{{ initial }}</span>
           </div>
           <!-- Hover overlay -->
           <div class="rec-overlay">
@@ -42,13 +50,18 @@
             </button>
             <button class="rec-action-btn"
                     :class="{ active: feedbackState === 'like' }"
-                    title="有用" @click.stop="$emit('feedback', {movieId: movie.id, type: 'like'})">
+                    title="感兴趣" @click.stop="$emit('feedback', {movieId: movie.id, type: 'like'})">
               <i class="ph ph-thumbs-up"></i>
             </button>
             <button class="rec-action-btn"
                     :class="{ active: feedbackState === 'dislike' }"
-                    title="不相关" @click.stop="$emit('feedback', {movieId: movie.id, type: 'dislike'})">
+                    title="不感兴趣" @click.stop="$emit('feedback', {movieId: movie.id, type: 'dislike'})">
               <i class="ph ph-thumbs-down"></i>
+            </button>
+            <button class="rec-action-btn"
+                    :class="{ active: feedbackState === 'watched' }"
+                    title="已看过" @click.stop="$emit('watched', movie.id)">
+              <i class="ph ph-check-fat"></i>
             </button>
             <button class="rec-action-btn" title="推荐理由"
                     @click.stop="$emit('hover-why', movie.id)">
@@ -57,7 +70,7 @@
           </div>
         </div>
 
-        <!-- Info -->
+        <!-- Movie title — always visible below poster -->
         <div class="rec-info">
           <h3 class="rec-title" @click="$emit('click', movie)">{{ formatTitle(movie.title) }}</h3>
           <div class="rec-meta">
@@ -71,7 +84,7 @@
           </div>
         </div>
 
-        <!-- Why tooltip -->
+        <!-- Why explanation (always visible when available) -->
         <div v-if="whyLoading" class="rec-why rec-why-loading">
           <i class="ph ph-spinner"></i> 分析中...
         </div>
@@ -89,8 +102,12 @@
         if (!this.movie.genres) return [];
         return String(this.movie.genres).split('|').filter(Boolean).slice(0, 3);
       },
+      posterSrc() {
+        const url = this.movie.poster || this.movie.poster_url || null;
+        return optimizePosterUrl(url, 'w342');
+      },
       showPoster() {
-        return !this.posterFailed && hasValidPoster(this.movie.poster);
+        return !this.posterFailed && hasValidPoster(this.posterSrc);
       },
       gradStyle() {
         return posterGradientStyle(this.movie.title);
@@ -98,8 +115,25 @@
       initial() {
         return posterInitial(this.movie.title);
       },
+      matchScore() {
+        const rating = this.movie.avg_rating;
+        const count = this.movie.rating_count || 0;
+        if (rating == null) return null;
+        let score = (rating / 5) * 70 + Math.min(count / 500, 1) * 30;
+        return Math.round(Math.min(score, 99));
+      },
+      matchLevel() {
+        const s = this.matchScore;
+        if (s == null) return '';
+        if (s >= 85) return 'match-high';
+        if (s >= 70) return 'match-mid';
+        return 'match-ok';
+      },
     },
     methods: {
+      onPosterError() {
+        this.posterFailed = true;
+      },
       formatTitle(title) {
         return formatMovieTitle(title);
       },
@@ -226,13 +260,14 @@
         try {
           let data;
           if (this.currentStrategy === 'popular') {
-            data = await api('/api/movies/popular?limit=50');
+            // Use recommendation engine for fast loading (same as other strategies)
+            data = await api('/api/recommendations?n=50&strategy=itemcf');
           } else {
             // Force login for personalized strategies
             if (!this.user) {
               showToast('请先登录以使用个性化推荐', 'error');
               this.currentStrategy = 'popular';
-              data = await api('/api/movies/popular?limit=50');
+              data = await api('/api/recommendations?n=50&strategy=itemcf');
               return;
             }
             data = await api(
@@ -244,6 +279,12 @@
           this.allMovies = list.map(normalizeMovie);
           this.displayCount = 24;
           this.filterGenres = this.availableGenres;
+          // Auto-fetch why explanations for first 6 cards
+          if (this.user && this.allMovies.length) {
+            this.$nextTick(() => {
+              this.allMovies.slice(0, 6).forEach(m => this.fetchWhy(m.id));
+            });
+          }
         } catch (e) {
           console.error('Recommendations load failed', e);
           this.allMovies = [];
@@ -367,6 +408,29 @@
           // Revert
           this.feedback = { ...this.feedback, [movieId]: prev };
           showToast('反馈提交失败', 'error');
+        }
+      },
+
+      async markWatched(movieId) {
+        if (!this.user) {
+          showToast('请先登录', 'error');
+          return;
+        }
+        const prev = this.feedback[movieId];
+        this.feedback = { ...this.feedback, [movieId]: 'watched' };
+        try {
+          await api('/api/ratings', {
+            method: 'POST',
+            body: { movie_id: movieId, rating: 3 },
+          });
+          showToast('已标记为看过', 'success');
+          // Remove from list after short delay
+          setTimeout(() => {
+            this.allMovies = this.allMovies.filter(m => (m.id || m.movie_id) !== movieId);
+          }, 500);
+        } catch (e) {
+          this.feedback = { ...this.feedback, [movieId]: prev };
+          showToast('操作失败', 'error');
         }
       },
 

@@ -1,258 +1,63 @@
-document.addEventListener('DOMContentLoaded', () => {
-  function showError(message) {
-    console.error(message);
-  }
+/* =========================================
+   CineMatch Dashboard — Unified Data + Lazy Charts
+   ========================================= */
+
+(function () {
+  'use strict';
+
+  // ── ECharts loader ────────────────────────────────
 
   function loadScript(src, timeoutMs) {
     return new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = src;
       s.async = true;
-      const timer = setTimeout(() => {
-        s.remove();
-        reject(new Error('timeout loading ' + src));
-      }, timeoutMs);
-
-      s.onload = () => {
-        clearTimeout(timer);
-        resolve();
-      };
-      s.onerror = () => {
-        clearTimeout(timer);
-        s.remove();
-        reject(new Error('failed to load ' + src));
-      };
+      const timer = setTimeout(() => { s.remove(); reject(new Error('timeout')); }, timeoutMs);
+      s.onload = () => { clearTimeout(timer); resolve(); };
+      s.onerror = () => { clearTimeout(timer); s.remove(); reject(new Error('failed')); };
       document.head.appendChild(s);
     });
   }
 
   async function ensureEcharts() {
     if (window.echarts) return;
-    const timeoutMs = 2500;
     const cdns = [
       '/static/echarts/echarts.min.js',
       'https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js',
       'https://unpkg.com/echarts@5/dist/echarts.min.js',
       'https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js'
     ];
-    let lastErr = null;
     for (const url of cdns) {
       try {
-        await loadScript(url, timeoutMs);
+        await loadScript(url, 3000);
         if (window.echarts) return;
-      } catch (e) {
-        lastErr = e;
-      }
+      } catch (e) { /* try next */ }
     }
-    throw lastErr || new Error('echarts load failed');
+    throw new Error('ECharts 加载失败，请检查网络连接');
   }
+
+  // ── Chart manager ─────────────────────────────────
 
   const chartManager = {
     charts: [],
-    add(chart) {
-      this.charts.push(chart);
-      return chart;
-    },
+    add(chart) { this.charts.push(chart); return chart; },
     resizeAll() {
-      this.charts.forEach(chart => {
-        if (chart && !chart.isDisposed()) {
-          chart.resize();
-        }
-      });
+      this.charts.forEach(c => { if (c && !c.isDisposed()) c.resize(); });
     },
     disposeAll() {
-      this.charts.forEach(chart => {
-        if (chart && !chart.isDisposed()) {
-          chart.dispose();
-        }
-      });
+      this.charts.forEach(c => { if (c && !c.isDisposed()) c.dispose(); });
       this.charts = [];
     }
   };
 
-  let resizeTimeout;
+  let resizeTimer;
   window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-      chartManager.resizeAll();
-    }, 100);
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => chartManager.resizeAll(), 120);
   });
+  window.addEventListener('beforeunload', () => chartManager.disposeAll());
 
-  async function fetchJson(url, retryCount = 1) {
-    const friendlyErrors = {
-      401: '🔒 请先登录',
-      404: '❓ 数据不存在',
-      503: '🔧 服务暂时不可用',
-    };
-
-    for (let i = 0; i <= retryCount; i++) {
-      try {
-        const res = await fetch(url, { credentials: 'include' });
-        if (!res.ok) {
-          const msg = friendlyErrors[res.status] || `请求失败 (${res.status})`;
-          throw new Error(msg);
-        }
-        return await res.json();
-      } catch (err) {
-        if (i === retryCount) throw err;
-        await new Promise(r => setTimeout(r, 500 * (i + 1)));
-      }
-    }
-  }
-
-  function fmtNum(x, digits) {
-    const n = Number(x);
-    if (!Number.isFinite(n)) return '-';
-    return n.toFixed(digits);
-  }
-
-  async function renderOfflineMetrics() {
-    const box = document.getElementById('offlineMetrics');
-    if (!box) return;
-    try {
-      const m = await fetchJson('/api/metrics/offline');
-      const fmt = (v) => (typeof v === 'number' ? v.toFixed(4) : v);
-      box.innerHTML = `
-        <div class="metrics-grid">
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m['precision@k'])}</div>
-            <div class="metric-label">Precision@K</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m['recall@k'])}</div>
-            <div class="metric-label">Recall@K</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m['map@k'])}</div>
-            <div class="metric-label">MAP@K</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m['ndcg@k'])}</div>
-            <div class="metric-label">NDCG@K</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m.coverage)}</div>
-            <div class="metric-label">Coverage</div>
-          </div>
-          <div class="metric-item">
-            <div class="metric-value">${fmt(m.avg_log_popularity)}</div>
-            <div class="metric-label">AvgLogPop</div>
-          </div>
-          <div class="metric-item" style="grid-column: span 2;">
-            <div class="metric-value">${m.users_evaluated}</div>
-            <div class="metric-label">Users Evaluated</div>
-          </div>
-        </div>
-        <div style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border-color);">
-          <span style="color:var(--text-secondary); font-size:0.8rem;">
-            配置参数：K=${m.k}, 评分阈值=${m.like_threshold}, 最少评分=${m.min_ratings}
-          </span>
-        </div>
-      `;
-    } catch (e) {
-      box.innerHTML = `
-        <div class="empty-state">
-          <div style="font-size:2rem; opacity:0.5;">📊</div>
-          <p style="margin-top:0.5rem;">暂无离线评估数据</p>
-          <p style="font-size:0.8rem; opacity:0.7;">运行 <code style="background:rgba(245,158,11,0.1); padding:0.2rem 0.4rem; border-radius:4px;">python -m backend.scripts.evaluate_itemcf</code> 生成评估结果</p>
-        </div>
-      `;
-    }
-  }
-
-  async function renderMultiModelMetrics() {
-    const box = document.getElementById('multiModelMetrics');
-    if (!box) return;
-    try {
-      const data = await fetchJson('/api/metrics/evaluation');
-      if (!data.results || data.results.length === 0) {
-        box.innerHTML = `
-          <div class="empty-state">
-            <div style="font-size:2rem; opacity:0.5;">🔄</div>
-            <p style="margin-top:0.5rem;">暂无多模型评估数据</p>
-          </div>
-        `;
-        return;
-      }
-
-      const mainResults = data.results.filter(r => !r.recall_k && r.per_seed_limit === 50);
-      const hybridAblation = data.results.filter(r => r.model === 'hybrid' && r.recall_k);
-      const itemcfAblation = data.results.filter(r => r.model === 'itemcf' && r.per_seed_limit !== 50);
-
-      let html = '<div style="overflow-x:auto;">';
-
-      if (mainResults.length > 0) {
-        html += '<div style="font-weight:600; margin-bottom:0.75rem; color:var(--text-primary);">主模型对比</div>';
-        html += '<table class="data-table">';
-        html += '<thead><tr>';
-        html += '<th>模型</th><th>P@K</th><th>R@K</th><th>MAP@K</th><th>NDCG@K</th><th>MRR@K</th><th>Coverage</th><th>用户数</th>';
-        html += '</tr></thead><tbody>';
-        for (const r of mainResults) {
-          const badgeClass = r.model === 'hybrid' ? 'badge-hybrid' : (r.model === 'ncf' ? 'badge-ncf' : 'badge-itemcf');
-          const badgeText = r.model === 'hybrid' ? 'Hybrid' : (r.model === 'ncf' ? 'NCF' : 'ItemCF');
-          html += '<tr>';
-          html += `<td><span class="model-badge ${badgeClass}">${badgeText}</span></td>`;
-          html += `<td>${r.precision_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.recall_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.map_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.ndcg_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.mrr_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.coverage?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.users_evaluated || 0}</td>`;
-          html += '</tr>';
-        }
-        html += '</tbody></table>';
-      }
-
-      if (hybridAblation.length > 0) {
-        html += '<div style="font-weight:600; margin:1.5rem 0 0.75rem; color:var(--text-primary);">消融实验：Hybrid 不同召回数量</div>';
-        html += '<table class="data-table">';
-        html += '<thead><tr>';
-        html += '<th>Recall@K</th><th>P@K</th><th>R@K</th><th>NDCG@K</th><th>耗时(s)</th>';
-        html += '</tr></thead><tbody>';
-        for (const r of hybridAblation) {
-          html += '<tr>';
-          html += `<td>${r.recall_k}</td>`;
-          html += `<td>${r.precision_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.recall_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.ndcg_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.runtime_seconds?.toFixed(2) || '-'}</td>`;
-          html += '</tr>';
-        }
-        html += '</tbody></table>';
-      }
-
-      if (itemcfAblation.length > 0) {
-        html += '<div style="font-weight:600; margin:1.5rem 0 0.75rem; color:var(--text-primary);">消融实验：ItemCF 不同种子限制</div>';
-        html += '<table class="data-table">';
-        html += '<thead><tr>';
-        html += '<th>Seed Limit</th><th>P@K</th><th>R@K</th><th>NDCG@K</th><th>耗时(s)</th>';
-        html += '</tr></thead><tbody>';
-        for (const r of itemcfAblation) {
-          html += '<tr>';
-          html += `<td>${r.per_seed_limit}</td>`;
-          html += `<td>${r.precision_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.recall_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.ndcg_at_k?.toFixed(4) || '-'}</td>`;
-          html += `<td>${r.runtime_seconds?.toFixed(2) || '-'}</td>`;
-          html += '</tr>';
-        }
-        html += '</tbody></table>';
-      }
-
-      html += '</div>';
-      html += `<div style="margin-top:1rem; color:var(--text-secondary); font-size:0.8rem;">生成时间：${data.timestamp || 'N/A'}</div>`;
-      box.innerHTML = html;
-    } catch (e) {
-      box.innerHTML = `
-        <div class="empty-state">
-          <div style="font-size:2rem; opacity:0.5;">🔄</div>
-          <p style="margin-top:0.5rem;">暂无多模型评估数据</p>
-          <p style="font-size:0.8rem; opacity:0.7;">运行 <code style="background:rgba(245,158,11,0.1); padding:0.2rem 0.4rem; border-radius:4px;">python -m backend.scripts.evaluate_models --models all --ablation</code> 生成结果</p>
-        </div>
-      `;
-    }
-  }
+  // ── Dark ECharts theme ────────────────────────────
 
   const darkTheme = {
     backgroundColor: 'transparent',
@@ -260,169 +65,374 @@ document.addEventListener('DOMContentLoaded', () => {
     title: { textStyle: { color: '#f8fafc' } },
     legend: { textStyle: { color: '#94a3b8' } },
     tooltip: {
-      backgroundColor: 'rgba(15, 23, 42, 0.9)',
+      backgroundColor: 'rgba(15, 23, 42, 0.92)',
       borderColor: 'rgba(148, 163, 184, 0.2)',
       textStyle: { color: '#f8fafc' }
     },
     xAxis: {
       axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.3)' } },
       axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } }
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }
     },
     yAxis: {
       axisLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.3)' } },
       axisLabel: { color: '#94a3b8' },
-      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.1)' } }
+      splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.08)' } }
     }
   };
 
-  async function renderRatings() {
-    try {
-      const data = await fetchJson('/api/stats/ratings');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartRatings')));
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
-        xAxis: { ...darkTheme.xAxis, type: 'category', data: data.labels },
-        yAxis: { ...darkTheme.yAxis, type: 'value' },
-        series: [{ type: 'bar', data: data.values, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } }]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartRatings');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
-    }
+  // ── Helpers ───────────────────────────────────────
+
+  function fmtNum(x, digits) {
+    const n = Number(x);
+    if (!Number.isFinite(n)) return '-';
+    return n.toFixed(digits);
   }
 
-  async function renderPopular() {
-    try {
-      const data = await fetchJson('/api/stats/popular?limit=12');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartPopular')));
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
-        legend: { ...darkTheme.legend, data: ['评分人数', '平均评分'] },
-        grid: { left: 50, right: 50, bottom: 80, top: 40 },
-        xAxis: { ...darkTheme.xAxis, type: 'category', data: data.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 35, fontSize: 10 } },
-        yAxis: [
-          { ...darkTheme.yAxis, type: 'value', name: '评分人数', nameTextStyle: { color: '#94a3b8' } },
-          { ...darkTheme.yAxis, type: 'value', name: '平均评分', min: 0, max: 5, nameTextStyle: { color: '#94a3b8' } }
-        ],
-        series: [
-          { name: '评分人数', type: 'bar', yAxisIndex: 0, data: data.counts, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } },
-          { name: '平均评分', type: 'line', yAxisIndex: 1, data: data.avg_ratings, smooth: true, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 } }
-        ]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartPopular');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
-    }
+  function setError(el, msg) {
+    if (!el) return;
+    el.innerHTML = `<div class="chart-error"><div class="chart-error-icon">⚠️</div><span>${msg}</span></div>`;
   }
 
-  async function renderUsers() {
-    try {
-      const data = await fetchJson('/api/stats/user_activity?limit=12');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartUsers')));
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
-        xAxis: { ...darkTheme.xAxis, type: 'category', data: data.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 35, fontSize: 10 } },
-        yAxis: { ...darkTheme.yAxis, type: 'value' },
-        series: [{ type: 'bar', data: data.values, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [ { offset: 0, color: '#f59e0b' }, { offset: 1, color: '#d97706' } ]), borderRadius: [4, 4, 0, 0] } }]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartUsers');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
-    }
+  function setEmpty(el, msg, hint) {
+    if (!el) return;
+    el.innerHTML = `<div class="chart-error"><div class="chart-error-icon">📭</div><span>${msg}</span>${hint ? '<small style="opacity:0.6;margin-top:0.25rem;">' + hint + '</small>' : ''}</div>`;
   }
 
-  async function renderMovieCounts() {
-    try {
-      const data = await fetchJson('/api/stats/movie_rating_counts');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartMovieCounts')));
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
-        xAxis: { ...darkTheme.xAxis, type: 'category', data: data.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 35, fontSize: 10 } },
-        yAxis: { ...darkTheme.yAxis, type: 'value' },
-        series: [{ type: 'bar', data: data.values, itemStyle: { color: '#34d399', borderRadius: [4, 4, 0, 0] } }]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartMovieCounts');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
-    }
+  // ── API ───────────────────────────────────────────
+
+  async function fetchJson(url) {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) throw new Error(`请求失败 (${res.status})`);
+    return res.json();
   }
 
-  async function renderGenres() {
-    try {
-      const data = await fetchJson('/api/stats/genres');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartGenres')));
-      const items = data.labels.map((name, i) => ({ name, value: data.values[i] }));
-      const colors = ['#f59e0b', '#fbbf24', '#fcd34d', '#60a5fa', '#34d399', '#a78bfa', '#f87171', '#fb923c'];
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-        series: [{
-          type: 'pie',
-          radius: ['30%', '65%'],
-          center: ['50%', '50%'],
-          avoidLabelOverlap: true,
-          itemStyle: { borderRadius: 6, borderColor: '#0f172a', borderWidth: 2 },
-          label: { color: '#94a3b8', fontSize: 11 },
-          data: items.slice(0, 12).map((item, i) => ({ ...item, itemStyle: { color: colors[i % colors.length] } }))
-        }]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartGenres');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
+  // ── Offline metrics renderer ──────────────────────
+
+  function renderOfflineMetrics(data) {
+    const box = document.getElementById('offlineMetrics');
+    if (!box) return;
+
+    if (!data) {
+      box.innerHTML = `
+        <div class="empty-state-card">
+          <div class="empty-icon">📊</div>
+          <div class="empty-title">暂无离线评估数据</div>
+          <div class="empty-desc">运行评估脚本生成 ItemCF 离线指标</div>
+          <code>python -m backend.scripts.evaluate_itemcf</code>
+        </div>`;
+      return;
     }
+
+    const fmt = (v) => (typeof v === 'number' ? v.toFixed(4) : v);
+    box.innerHTML = `
+      <div class="metrics-grid">
+        <div class="metric-item"><div class="metric-value">${fmt(data['precision@k'])}</div><div class="metric-label">Precision@K</div></div>
+        <div class="metric-item"><div class="metric-value">${fmt(data['recall@k'])}</div><div class="metric-label">Recall@K</div></div>
+        <div class="metric-item"><div class="metric-value">${fmt(data['map@k'])}</div><div class="metric-label">MAP@K</div></div>
+        <div class="metric-item"><div class="metric-value">${fmt(data['ndcg@k'])}</div><div class="metric-label">NDCG@K</div></div>
+        <div class="metric-item"><div class="metric-value">${fmt(data.coverage)}</div><div class="metric-label">Coverage</div></div>
+        <div class="metric-item"><div class="metric-value">${fmt(data.avg_log_popularity)}</div><div class="metric-label">AvgLogPop</div></div>
+        <div class="metric-item" style="grid-column:span 2;"><div class="metric-value">${data.users_evaluated || '-'}</div><div class="metric-label">Users Evaluated</div></div>
+      </div>
+      <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--cinema-border);font-size:0.8rem;color:var(--cinema-text-secondary);">
+        配置：K=${data.k || '-'}，评分阈值=${data.like_threshold || '-'}，最少评分=${data.min_ratings || '-'}
+      </div>`;
   }
 
-  async function renderYears() {
-    try {
-      const data = await fetchJson('/api/stats/years');
-      const chart = chartManager.add(echarts.init(document.getElementById('chartYears')));
-      chart.setOption({
-        ...darkTheme,
-        tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
-        legend: { ...darkTheme.legend, data: ['评分数量', '平均评分'] },
-        xAxis: { ...darkTheme.xAxis, type: 'category', data: data.years },
-        yAxis: [
-          { ...darkTheme.yAxis, type: 'value', name: '评分数量', nameTextStyle: { color: '#94a3b8' } },
-          { ...darkTheme.yAxis, type: 'value', name: '平均评分', min: 0, max: 5, nameTextStyle: { color: '#94a3b8' } }
-        ],
-        series: [
-          { type: 'bar', yAxisIndex: 0, data: data.counts, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } },
-          { type: 'line', yAxisIndex: 1, data: data.avg_ratings, smooth: true, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 }, symbol: 'circle', symbolSize: 8 }
-        ]
-      });
-    } catch (e) {
-      const target = document.getElementById('chartYears');
-      if (target) target.innerHTML = '<div style="text-align:center;padding:2rem;color:#94a3b8;">' + e.message + '</div>';
+  // ── Multi-model comparison renderer ───────────────
+
+  function renderMultiModel(data) {
+    const box = document.getElementById('multiModelMetrics');
+    if (!box) return;
+
+    if (!data || !data.results || data.results.length === 0) {
+      box.innerHTML = `
+        <div class="empty-state-card">
+          <div class="empty-icon">🔄</div>
+          <div class="empty-title">暂无多模型对比数据</div>
+          <div class="empty-desc">运行评估脚本并启用消融实验</div>
+          <code>python -m backend.scripts.evaluate_models --models all --ablation</code>
+        </div>`;
+      return;
     }
-  }
 
-  window.addEventListener('beforeunload', () => {
-    chartManager.disposeAll();
-  });
+    const mainResults = data.results.filter(r => !r.recall_k && r.per_seed_limit === 50);
+    const hybridAblation = data.results.filter(r => r.model === 'hybrid' && r.recall_k);
+    const itemcfAblation = data.results.filter(r => r.model === 'itemcf' && r.per_seed_limit !== 50);
 
-  ensureEcharts()
-    .then(() => Promise.allSettled([
-      renderOfflineMetrics(),
-      renderMultiModelMetrics(),
-      renderRatings(),
-      renderGenres(),
-      renderYears(),
-      renderPopular(),
-      renderUsers(),
-      renderMovieCounts()
-    ]))
-    .then((results) => {
-      const failures = results.filter(r => r.status === 'rejected');
-      if (failures.length > 0) {
-        console.error('部分图表加载失败:', failures);
+    let html = '<div style="overflow-x:auto;">';
+
+    if (mainResults.length > 0) {
+      html += '<div style="font-weight:600;margin-bottom:0.75rem;color:var(--cinema-text);">主模型对比</div>';
+      html += '<table class="data-table"><thead><tr>';
+      html += '<th>模型</th><th>P@K</th><th>R@K</th><th>MAP@K</th><th>NDCG@K</th><th>MRR@K</th><th>Coverage</th><th>用户数</th>';
+      html += '</tr></thead><tbody>';
+      for (const r of mainResults) {
+        const bc = r.model === 'hybrid' ? 'badge-hybrid' : (r.model === 'ncf' ? 'badge-ncf' : 'badge-itemcf');
+        const bt = r.model === 'hybrid' ? 'Hybrid' : (r.model === 'ncf' ? 'NCF' : 'ItemCF');
+        html += `<tr><td><span class="model-badge ${bc}">${bt}</span></td>`;
+        html += `<td>${r.precision_at_k?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.recall_at_k?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.map_at_k?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.ndcg_at_k?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.mrr_at_k?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.coverage?.toFixed(4) || '-'}</td>`;
+        html += `<td>${r.users_evaluated || 0}</td></tr>`;
       }
-    })
-    .catch((e) => {
-      console.error(e);
+      html += '</tbody></table>';
+    }
+
+    if (hybridAblation.length > 0) {
+      html += '<div style="font-weight:600;margin:1.5rem 0 0.75rem;color:var(--cinema-text);">消融实验：Hybrid 召回量影响</div>';
+      html += '<table class="data-table"><thead><tr><th>Recall@K</th><th>P@K</th><th>R@K</th><th>NDCG@K</th><th>耗时(s)</th></tr></thead><tbody>';
+      for (const r of hybridAblation) {
+        html += `<tr><td>${r.recall_k}</td><td>${r.precision_at_k?.toFixed(4) || '-'}</td><td>${r.recall_at_k?.toFixed(4) || '-'}</td><td>${r.ndcg_at_k?.toFixed(4) || '-'}</td><td>${r.runtime_seconds?.toFixed(2) || '-'}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    if (itemcfAblation.length > 0) {
+      html += '<div style="font-weight:600;margin:1.5rem 0 0.75rem;color:var(--cinema-text);">消融实验：ItemCF 种子限制影响</div>';
+      html += '<table class="data-table"><thead><tr><th>Seed Limit</th><th>P@K</th><th>R@K</th><th>NDCG@K</th><th>耗时(s)</th></tr></thead><tbody>';
+      for (const r of itemcfAblation) {
+        html += `<tr><td>${r.per_seed_limit}</td><td>${r.precision_at_k?.toFixed(4) || '-'}</td><td>${r.recall_at_k?.toFixed(4) || '-'}</td><td>${r.ndcg_at_k?.toFixed(4) || '-'}</td><td>${r.runtime_seconds?.toFixed(2) || '-'}</td></tr>`;
+      }
+      html += '</tbody></table>';
+    }
+
+    html += '</div>';
+    html += `<div style="margin-top:1rem;color:var(--cinema-text-secondary);font-size:0.8rem;">生成时间：${data.timestamp || 'N/A'}</div>`;
+    box.innerHTML = html;
+  }
+
+  // ── Chart renderers ───────────────────────────────
+
+  function renderRatings(stats) {
+    const el = document.getElementById('chartRatings');
+    if (!el) return;
+    if (!stats || !stats.labels || !stats.labels.length) { setEmpty(el, '暂无评分数据', '用户评分后将在此显示分布'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
+      xAxis: { ...darkTheme.xAxis, type: 'category', data: stats.labels },
+      yAxis: { ...darkTheme.yAxis, type: 'value' },
+      series: [{ type: 'bar', data: stats.values, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } }]
     });
-});
+  }
+
+  function renderGenres(stats) {
+    const el = document.getElementById('chartGenres');
+    if (!el) return;
+    if (!stats || !stats.labels || !stats.labels.length) { setEmpty(el, '暂无类型数据', '导入电影数据后将在此显示'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    const items = stats.labels.map((name, i) => ({ name, value: stats.values[i] }));
+    const colors = ['#f59e0b', '#fbbf24', '#fcd34d', '#60a5fa', '#34d399', '#a78bfa', '#f87171', '#fb923c', '#e5a00d', '#818cf8'];
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+      series: [{
+        type: 'pie', radius: ['30%', '65%'], center: ['50%', '50%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderRadius: 6, borderColor: '#0f172a', borderWidth: 2 },
+        label: { color: '#94a3b8', fontSize: 10 },
+        data: items.slice(0, 14).map((item, i) => ({ ...item, itemStyle: { color: colors[i % colors.length] } }))
+      }]
+    });
+  }
+
+  function renderYears(stats) {
+    const el = document.getElementById('chartYears');
+    if (!el) return;
+    if (!stats || !stats.years || !stats.years.length) { setEmpty(el, '暂无年份数据', '导入电影数据后将在此显示'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
+      legend: { ...darkTheme.legend, data: ['评分数量', '平均评分'] },
+      grid: { left: 50, right: 50, bottom: 30, top: 40 },
+      xAxis: { ...darkTheme.xAxis, type: 'category', data: stats.years },
+      yAxis: [
+        { ...darkTheme.yAxis, type: 'value', name: '评分数量', nameTextStyle: { color: '#94a3b8' } },
+        { ...darkTheme.yAxis, type: 'value', name: '平均评分', min: 0, max: 5, nameTextStyle: { color: '#94a3b8' } }
+      ],
+      series: [
+        { type: 'bar', yAxisIndex: 0, data: stats.counts, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } },
+        { type: 'line', yAxisIndex: 1, data: stats.avg_ratings, smooth: true, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 }, symbol: 'circle', symbolSize: 8 }
+      ]
+    });
+  }
+
+  function renderPopular(stats) {
+    const el = document.getElementById('chartPopular');
+    if (!el) return;
+    if (!stats || !stats.labels || !stats.labels.length) { setEmpty(el, '暂无热门电影数据', '用户评分后将在此显示'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
+      legend: { ...darkTheme.legend, data: ['评分人数', '平均评分'] },
+      grid: { left: 50, right: 50, bottom: 80, top: 40 },
+      xAxis: { ...darkTheme.xAxis, type: 'category', data: stats.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 30, fontSize: 10 } },
+      yAxis: [
+        { ...darkTheme.yAxis, type: 'value', name: '评分人数', nameTextStyle: { color: '#94a3b8' } },
+        { ...darkTheme.yAxis, type: 'value', name: '平均评分', min: 0, max: 5, nameTextStyle: { color: '#94a3b8' } }
+      ],
+      series: [
+        { name: '评分人数', type: 'bar', yAxisIndex: 0, data: stats.counts, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } },
+        { name: '平均评分', type: 'line', yAxisIndex: 1, data: stats.avg_ratings, smooth: true, itemStyle: { color: '#60a5fa' }, lineStyle: { width: 3 } }
+      ]
+    });
+  }
+
+  function renderUsers(stats) {
+    const el = document.getElementById('chartUsers');
+    if (!el) return;
+    if (!stats || !stats.labels || !stats.labels.length) { setEmpty(el, '暂无用户数据', '用户活动后将在此显示'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
+      xAxis: { ...darkTheme.xAxis, type: 'category', data: stats.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 30, fontSize: 10 } },
+      yAxis: { ...darkTheme.yAxis, type: 'value' },
+      series: [{ type: 'bar', data: stats.values, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#f59e0b' }, { offset: 1, color: '#d97706' }]), borderRadius: [4, 4, 0, 0] } }]
+    });
+  }
+
+  function renderMovieCounts(stats) {
+    const el = document.getElementById('chartMovieCounts');
+    if (!el) return;
+    if (!stats || !stats.labels || !stats.labels.length) { setEmpty(el, '暂无数据', '导入数据后将在此显示'); return; }
+    const chart = chartManager.add(echarts.init(el));
+    chart.setOption({
+      ...darkTheme,
+      tooltip: { ...darkTheme.tooltip, trigger: 'axis' },
+      xAxis: { ...darkTheme.xAxis, type: 'category', data: stats.labels, axisLabel: { ...darkTheme.xAxis.axisLabel, rotate: 30, fontSize: 10 } },
+      yAxis: { ...darkTheme.yAxis, type: 'value' },
+      series: [{ type: 'bar', data: stats.values, itemStyle: { color: '#34d399', borderRadius: [4, 4, 0, 0] } }]
+    });
+  }
+
+  // ── Lazy chart observer ───────────────────────────
+
+  const chartRenderers = {
+    chartRatings: renderRatings,
+    chartGenres: renderGenres,
+    chartYears: renderYears,
+    chartPopular: renderPopular,
+    chartUsers: renderUsers,
+    chartMovieCounts: renderMovieCounts,
+  };
+
+  let dashboardData = null;
+
+  function initChartsWhenVisible() {
+    if (!window.IntersectionObserver || !dashboardData) {
+      // Fallback: render all immediately
+      if (dashboardData) renderAllCharts();
+      return;
+    }
+
+    const stats = dashboardData.stats || {};
+    const rendered = new Set();
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const id = entry.target.id;
+        if (rendered.has(id)) return;
+        rendered.add(id);
+
+        const renderer = chartRenderers[id];
+        const statKey = {
+          chartRatings: 'ratings', chartGenres: 'genres', chartYears: 'years',
+          chartPopular: 'popular', chartUsers: 'user_activity', chartMovieCounts: 'movie_rating_counts'
+        }[id];
+
+        if (renderer && statKey) {
+          renderer(stats[statKey]);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { rootMargin: '150px' });
+
+    Object.keys(chartRenderers).forEach(id => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+
+    // Fallback: render remaining after 5s
+    setTimeout(() => {
+      Object.keys(chartRenderers).forEach(id => {
+        if (!rendered.has(id)) {
+          const statKey = {
+            chartRatings: 'ratings', chartGenres: 'genres', chartYears: 'years',
+            chartPopular: 'popular', chartUsers: 'user_activity', chartMovieCounts: 'movie_rating_counts'
+          }[id];
+          if (chartRenderers[id] && statKey) chartRenderers[id](stats[statKey]);
+        }
+      });
+    }, 5000);
+  }
+
+  function renderAllCharts() {
+    const stats = dashboardData.stats || {};
+    Object.entries(chartRenderers).forEach(([id, renderer]) => {
+      const statKey = {
+        chartRatings: 'ratings', chartGenres: 'genres', chartYears: 'years',
+        chartPopular: 'popular', chartUsers: 'user_activity', chartMovieCounts: 'movie_rating_counts'
+      }[id];
+      if (statKey) renderer(stats[statKey]);
+    });
+  }
+
+  // ── Main load ─────────────────────────────────────
+
+  let loading = false;
+
+  async function loadAll() {
+    if (loading) return;
+    loading = true;
+
+    const btn = document.getElementById('btnRefresh');
+    if (btn) btn.classList.add('spinning');
+
+    try {
+      dashboardData = await fetchJson('/api/dashboard/overview');
+
+      // Render non-chart sections immediately
+      renderOfflineMetrics(dashboardData.offline_metrics);
+      renderMultiModel(dashboardData.multi_model);
+
+      // Lazy-render charts
+      await ensureEcharts();
+      initChartsWhenVisible();
+    } catch (e) {
+      console.error('Dashboard load failed:', e);
+      // Show error on all chart containers
+      Object.keys(chartRenderers).forEach(id => {
+        setError(document.getElementById(id), '数据加载失败，请刷新重试');
+      });
+      setError(document.getElementById('offlineMetrics'), '数据加载失败');
+      setError(document.getElementById('multiModelMetrics'), '数据加载失败');
+    } finally {
+      loading = false;
+      if (btn) btn.classList.remove('spinning');
+    }
+  }
+
+  // ── Init ──────────────────────────────────────────
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadAll();
+
+    const btn = document.getElementById('btnRefresh');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        chartManager.disposeAll();
+        loadAll();
+      });
+    }
+  });
+})();

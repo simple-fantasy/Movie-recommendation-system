@@ -24,7 +24,10 @@
   .metric-value { font-size:1.5rem; font-weight:700; color:var(--cinema-accent); margin-bottom:.25rem; }
   .metric-label { font-size:.8rem; color:var(--cinema-text-secondary); }
   .chart-container { height:320px; position:relative; }
-  .loading-spinner { display:flex; align-items:center; justify-content:center; height:100%; color:var(--cinema-text-secondary); }
+  .chart-skeleton { height:320px; background:var(--cinema-surface-elevated); border-radius:12px; display:flex; align-items:center; justify-content:center; }
+  .chart-skeleton-inner { display:flex; flex-direction:column; align-items:center; gap:0.75rem; }
+  .chart-error { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--cinema-text-secondary); text-align:center; padding:2rem; }
+  .chart-error-icon { font-size:2rem; margin-bottom:0.5rem; opacity:0.5; }
   .data-table { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem; color:var(--cinema-text); }
   .data-table th,.data-table td { padding:.75rem; text-align:center; border:1px solid var(--cinema-border); }
   .data-table th { background:var(--cinema-surface-elevated); color:var(--cinema-accent); font-weight:600; }
@@ -33,7 +36,20 @@
   .badge-hybrid { background:rgba(229,160,13,.2); color:var(--cinema-accent); }
   .badge-ncf { background:rgba(59,130,246,.2); color:#60a5fa; }
   .badge-itemcf { background:rgba(16,185,129,.2); color:#34d399; }
+  .empty-state-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:2.5rem 1.5rem; text-align:center; color:var(--cinema-text-secondary); }
+  .empty-state-card .empty-icon { font-size:2.5rem; margin-bottom:0.75rem; opacity:0.5; }
+  .empty-state-card .empty-title { font-weight:600; margin-bottom:0.35rem; color:var(--cinema-text); }
+  .empty-state-card .empty-desc { font-size:0.85rem; margin-bottom:1rem; opacity:0.7; }
+  .empty-state-card code { background:rgba(229,160,13,0.1); padding:0.15rem 0.4rem; border-radius:4px; font-size:0.8rem; color:var(--cinema-accent); }
   @media(max-width:768px){ .dashboard-wrapper{padding:1rem;} .metrics-grid{grid-template-columns:repeat(2,1fr);} .page-title{font-size:1.5rem;} }
+  .skeleton-pulse { animation: skPulse 1.5s ease-in-out infinite; }
+  @keyframes skPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .skeleton-metric { height:80px; background:var(--cinema-surface-elevated); border-radius:12px; }
+  .skeleton-table-row { height:40px; background:var(--cinema-surface-elevated); border-radius:8px; margin-bottom:8px; }
+  .refresh-btn { background:transparent; border:1px solid var(--cinema-border); color:var(--cinema-text-secondary); border-radius:8px; padding:0.4rem 0.8rem; font-size:0.85rem; cursor:pointer; transition:all .2s; display:inline-flex; align-items:center; gap:0.4rem; }
+  .refresh-btn:hover { border-color:var(--cinema-accent); color:var(--cinema-accent); }
+  .refresh-btn.spinning i { animation: spin 0.8s linear infinite; }
+  @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
 </style>
 {% endblock %}
 {% block content %}
@@ -41,8 +57,12 @@
   <div class="page-header">
     <h1 class="page-title">数据看板</h1>
     <p class="page-subtitle">实时监控推荐系统运行状态与评估指标</p>
+    <button class="refresh-btn" id="btnRefresh" title="刷新数据">
+      <i class="ph ph-arrow-clockwise"></i> 刷新
+    </button>
   </div>
   <div class="dashboard-grid">
+    <!-- 离线评估指标 -->
     <div class="dashboard-card card-wide">
       <div class="card-header">
         <div class="card-title"><i class="ph ph-chart-line-up"></i> 离线评估指标（ItemCF）</div>
@@ -50,8 +70,17 @@
           <div class="tooltip-content"><strong>指标说明：</strong><br/><strong>Precision@K</strong>：推荐列表中相关电影的比例<br/><strong>Recall@K</strong>：用户喜欢的电影中被推荐的比例<br/><strong>MAP@K</strong>：平均精度均值，综合衡量排序质量<br/><strong>NDCG@K</strong>：归一化折损累计增益，考虑位置权重<br/><strong>Coverage</strong>：推荐系统的长尾覆盖能力</div>
         </div>
       </div>
-      <div id="offlineMetrics"><div class="loading-spinner">加载中...</div></div>
+      <div id="offlineMetrics">
+        <div class="metrics-grid skeleton-pulse">
+          <div class="skeleton-metric"></div><div class="skeleton-metric"></div>
+          <div class="skeleton-metric"></div><div class="skeleton-metric"></div>
+          <div class="skeleton-metric"></div><div class="skeleton-metric"></div>
+          <div class="skeleton-metric" style="grid-column:span 2;"></div>
+        </div>
+      </div>
     </div>
+
+    <!-- 多模型对比与消融实验 -->
     <div class="dashboard-card card-wide">
       <div class="card-header">
         <div class="card-title"><i class="ph ph-arrows-clockwise"></i> 多模型对比与消融实验</div>
@@ -59,17 +88,65 @@
           <div class="tooltip-content"><strong>模型说明：</strong><br/><strong>ItemCF</strong>：基于物品相似度的协同过滤<br/><strong>NCF</strong>：神经网络协同过滤，使用深度学习<br/><strong>Hybrid</strong>：融合ItemCF和NCF的混合推荐<br/><strong>消融实验</strong>：调整不同参数观察效果变化</div>
         </div>
       </div>
-      <div id="multiModelMetrics"><div class="loading-spinner">加载中...</div></div>
+      <div id="multiModelMetrics">
+        <div class="skeleton-pulse">
+          <div class="skeleton-table-row"></div>
+          <div class="skeleton-table-row"></div>
+          <div class="skeleton-table-row"></div>
+        </div>
+      </div>
     </div>
-    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-star"></i> 评分分布</div></div><div id="chartRatings" class="chart-container"></div></div>
-    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-mask-happy"></i> 类型占比</div></div><div id="chartGenres" class="chart-container"></div></div>
-    <div class="dashboard-card card-wide"><div class="card-header"><div class="card-title"><i class="ph ph-calendar"></i> 年份趋势（评分数量 & 平均评分）</div></div><div id="chartYears" class="chart-container"></div></div>
-    <div class="dashboard-card card-wide"><div class="card-header"><div class="card-title"><i class="ph ph-fire"></i> 热门电影（评分人数 Top）</div></div><div id="chartPopular" class="chart-container"></div></div>
-    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-users"></i> 活跃用户</div></div><div id="chartUsers" class="chart-container"></div></div>
-    <div class="dashboard-card"><div class="card-header"><div class="card-title"><i class="ph ph-chart-bar"></i> 电影评分次数分布</div></div><div id="chartMovieCounts" class="chart-container"></div></div>
+
+    <!-- 评分分布 -->
+    <div class="dashboard-card">
+      <div class="card-header"><div class="card-title"><i class="ph ph-star"></i> 评分分布</div></div>
+      <div id="chartRatings" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-bar" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
+
+    <!-- 类型占比 -->
+    <div class="dashboard-card">
+      <div class="card-header"><div class="card-title"><i class="ph ph-mask-happy"></i> 类型占比</div></div>
+      <div id="chartGenres" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-pie" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
+
+    <!-- 年份趋势 -->
+    <div class="dashboard-card card-wide">
+      <div class="card-header"><div class="card-title"><i class="ph ph-calendar"></i> 年份趋势（评分数量 & 平均评分）</div></div>
+      <div id="chartYears" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-line" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
+
+    <!-- 热门电影 -->
+    <div class="dashboard-card card-wide">
+      <div class="card-header"><div class="card-title"><i class="ph ph-fire"></i> 热门电影（评分人数 Top）</div></div>
+      <div id="chartPopular" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-bar" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
+
+    <!-- 活跃用户 -->
+    <div class="dashboard-card">
+      <div class="card-header"><div class="card-title"><i class="ph ph-users"></i> 活跃用户</div></div>
+      <div id="chartUsers" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-bar" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
+
+    <!-- 电影评分次数分布 -->
+    <div class="dashboard-card">
+      <div class="card-header"><div class="card-title"><i class="ph ph-chart-bar"></i> 电影评分次数分布</div></div>
+      <div id="chartMovieCounts" class="chart-container">
+        <div class="chart-skeleton skeleton-pulse"><div class="chart-skeleton-inner"><i class="ph ph-chart-bar" style="font-size:2rem;opacity:0.3;"></i><span style="color:var(--cinema-text-muted);">加载中...</span></div></div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_js %}
-<script src="/static/js/page-dashboard.js" defer></script>
+<script src="/static/js/page-dashboard.js?v=2" defer></script>
 {% endblock %}
