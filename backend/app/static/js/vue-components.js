@@ -56,6 +56,7 @@ const MovieCard = {
   template: `
     <div class="movie-card" @click="onCardClick">
       <img v-if="showPoster" :src="posterUrl" :alt="displayTitle"
+           loading="lazy" decoding="async"
            @error="onPosterError">
       <div v-else class="poster-gradient" :style="gradStyle">
         <span class="poster-initial">{{ initial }}</span>

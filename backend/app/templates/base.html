@@ -8,6 +8,11 @@
   <meta http-equiv="Expires" content="0">
   <title>{% block title %}电影推荐系统{% endblock %}</title>
 
+  <!-- Preload critical resources -->
+  <link rel="preload" href="/static/vendor/bootstrap.min.css?v=2" as="style">
+  <link rel="preload" href="/static/css/cinema-theme.css?v=3" as="style">
+  <link rel="preload" href="/static/vendor/vue.global.js?v=2" as="script">
+
   <!-- Bootstrap 5.3 (local) -->
   <link href="/static/vendor/bootstrap.min.css?v=2" rel="stylesheet">
   <!-- Phosphor Icons (local loader, fetches CSS from jsdelivr) -->
@@ -107,9 +112,10 @@
   <!-- Scripts -->
   <script src="/static/vendor/bootstrap.bundle.min.js?v=2"></script>
   <script src="/static/vendor/vue.global.js?v=2"></script>
-  <script src="/static/vendor/gsap.min.js?v=2"></script>
-  <script src="/static/vendor/ScrollTrigger.min.js?v=2"></script>
-  <script src="/static/echarts/echarts.min.js?v=2"></script>
+  <!-- GSAP + ECharts deferred: only needed for pages with animations/charts -->
+  <script defer src="/static/vendor/gsap.min.js?v=2"></script>
+  <script defer src="/static/vendor/ScrollTrigger.min.js?v=2"></script>
+  <script defer src="/static/echarts/echarts.min.js?v=2"></script>
   <script src="/static/js/api.js?v=3"></script>
   <script src="/static/js/common.js?v=3"></script>
   <script src="/static/js/vue-components.js?v=4"></script>
@@ -153,9 +159,10 @@ window._authPromise = (async function initAuth() {
       }
     });
 
-    // Fade-in-up animations via GSAP ScrollTrigger
-    gsap.registerPlugin(ScrollTrigger);
-    document.addEventListener('DOMContentLoaded', () => {
+    // Fade-in-up animations via GSAP ScrollTrigger (GSAP loaded with defer)
+    function _initScrollAnimations() {
+      if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+      gsap.registerPlugin(ScrollTrigger);
       gsap.utils.toArray('.fade-in-up').forEach(el => {
         gsap.to(el, {
           opacity: 1,
@@ -169,6 +176,19 @@ window._authPromise = (async function initAuth() {
           }
         });
       });
+    }
+    if (typeof gsap !== 'undefined') {
+      _initScrollAnimations();
+    } else {
+      document.addEventListener('DOMContentLoaded', function() {
+        // GSAP deferred — wait a short moment for it to load, then try
+        var check = setInterval(function() {
+          if (typeof gsap !== 'undefined') { clearInterval(check); _initScrollAnimations(); }
+        }, 50);
+        setTimeout(function() { clearInterval(check); }, 5000);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', () => {
 
       // Scroll progress bar
       const progressBar = document.getElementById('scrollProgress');

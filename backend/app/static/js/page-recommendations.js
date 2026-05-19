@@ -37,7 +37,8 @@
         <!-- Poster area -->
         <div class="rec-poster" @click="$emit('click', movie)">
           <img v-if="showPoster" :src="posterSrc"
-               :alt="formatTitle(movie.title)" 
+               :alt="formatTitle(movie.title)"
+               loading="lazy" decoding="async"
                @error="onPosterError" />
           <div v-else class="rec-poster-placeholder" :style="gradStyle">
             <span class="rec-placeholder-icon">🎬</span>

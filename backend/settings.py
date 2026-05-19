@@ -64,7 +64,8 @@ class Settings(BaseSettings):
     pool_size: int = 10
     max_overflow: int = 20
     pool_timeout: int = 30
-    pool_recycle: int = 3600
+    pool_recycle: int = 1800
+    pool_pre_ping: bool = True
     
     @validator("secret_key")
     def validate_secret_key(cls, v, values):
@@ -98,13 +99,16 @@ class Settings(BaseSettings):
     
     def get_sqlalchemy_engine_options(self) -> dict:
         """获取SQLAlchemy引擎配置"""
-        return {
+        opts = {
             "pool_size": self.pool_size,
             "max_overflow": self.max_overflow,
             "pool_timeout": self.pool_timeout,
             "pool_recycle": self.pool_recycle,
             "echo": self.sqlalchemy_echo,
         }
+        if self.pool_pre_ping:
+            opts["pool_pre_ping"] = True
+        return opts
     
     class Config:
         env_file = ".env"

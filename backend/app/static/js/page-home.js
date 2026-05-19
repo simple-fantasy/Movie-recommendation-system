@@ -110,10 +110,9 @@
     },
 
     async mounted() {
-      await this.checkAuth();
-
-      // All sections from ONE recommendation API call
+      // Fire content load immediately — auth check is independent
       this.loadAllContent();
+      await this.checkAuth();
 
       if (this.user) {
         this.loadMyRatings();

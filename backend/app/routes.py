@@ -6,6 +6,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request, session
 from flask_login import current_user, login_required, login_user, logout_user
+from sqlalchemy.orm import joinedload
 
 from backend.app import cache, db
 from backend.app.models import (Movie, MovieSimilarity, Rating, RecommendationFeedback, User, Review, ReviewLike,
@@ -605,7 +606,15 @@ def _format_recommendations(
 
 
 def _get_popular_fallback(top_n: int) -> list[dict]:
-    """Return popular movies as fallback for cold users. Only movies with posters and >=50 ratings."""
+    """Return popular movies as fallback for cold users. Only movies with posters and >=50 ratings.
+
+    Cached for 120s to reduce DB load from anonymous/cold-start traffic.
+    """
+    cache_key = f"_popular_fallback_{top_n}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     movies = (
         db.session.query(Movie, db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"), db.func.count(Rating.id).label("cnt"))
         .outerjoin(Rating, Rating.movie_id == Movie.id)
@@ -616,7 +625,7 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
         .limit(top_n)
         .all()
     )
-    return [
+    result = [
         {
             "id": m.id,
             "title": m.title,
@@ -633,6 +642,8 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
         }
         for (m, avg, cnt) in movies
     ]
+    cache.set(cache_key, result, timeout=120)
+    return result
 
 
 @bp.get("/api/recommendations")
@@ -645,7 +656,12 @@ def recommend():
     if not current_user.is_authenticated:
         return jsonify(_get_popular_fallback(top_n))
 
-    user_ratings = Rating.query.filter_by(user_id=current_user.id).all()
+    user_ratings = (
+        Rating.query.filter_by(user_id=current_user.id)
+        .order_by(Rating.timestamp.desc())
+        .limit(200)
+        .all()
+    )
 
     # Cold user: return popular
     if not user_ratings:
@@ -1243,8 +1259,9 @@ def get_movie_reviews(movie_id):
     if not movie:
         return jsonify({'error': '电影不存在'}), 404
     
-    # 构建查询
-    query = Review.query.filter_by(movie_id=movie_id, status='approved')
+    # 构建查询（预加载user关系，避免to_dict()触发N+1）
+    query = Review.query.filter_by(movie_id=movie_id, status='approved')\
+        .options(joinedload(Review.user))
     
     # 排序
     if sort_by == 'newest':
@@ -1257,15 +1274,19 @@ def get_movie_reviews(movie_id):
     pagination = query.paginate(page=page, per_page=per_page, error_out=False)
     
     reviews = [review.to_dict() for review in pagination.items]
-    
-    # 如果当前用户已登录，标记用户是否已点赞
-    if current_user.is_authenticated:
+
+    # 批量查询点赞状态（修复N+1问题）
+    if current_user.is_authenticated and reviews:
+        review_ids = [r['id'] for r in reviews]
+        liked_review_ids = {
+            rl.review_id for rl in
+            ReviewLike.query.filter(
+                ReviewLike.user_id == current_user.id,
+                ReviewLike.review_id.in_(review_ids)
+            ).all()
+        }
         for review in reviews:
-            liked = ReviewLike.query.filter_by(
-                user_id=current_user.id,
-                review_id=review['id']
-            ).first() is not None
-            review['user_liked'] = liked
+            review['user_liked'] = review['id'] in liked_review_ids
     
     return jsonify({
         'reviews': reviews,
@@ -1338,6 +1359,7 @@ def get_my_reviews():
     per_page = min(request.args.get('per_page', 10, type=int), 50)
     
     pagination = Review.query.filter_by(user_id=current_user.id)\
+        .options(joinedload(Review.movie))\
         .order_by(Review.created_at.desc())\
         .paginate(page=page, per_page=per_page, error_out=False)
     
