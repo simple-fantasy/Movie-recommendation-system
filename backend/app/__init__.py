@@ -46,6 +46,15 @@ def create_app() -> Flask:
 
     db.init_app(app)
     login_manager.init_app(app)
+
+    # API 未登录时返回 JSON 错误，而非 HTML 重定向（避免前端显示乱码）
+    @login_manager.unauthorized_handler
+    def unauthorized():
+        from flask import jsonify, redirect, request, url_for
+        if request.path.startswith('/api/'):
+            return jsonify({"error": "请先登录"}), 401
+        return redirect(url_for('main.index'))
+
     cache.init_app(app)
     migrate.init_app(app, db)
 
@@ -62,6 +71,13 @@ def create_app() -> Flask:
 
     with app.app_context():
         db.create_all()
+        # 确保性能索引存在（SQLite 不会自动更新已有表的索引）
+        try:
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS ix_ratings_timestamp ON ratings (timestamp)"))
+            db.session.execute(db.text("CREATE INDEX IF NOT EXISTS ix_users_created_at ON users (created_at)"))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
         # Auto-seed sample data if database is empty
         from backend.app.models import Movie, User, Rating
         from backend.app.seed import seed_sample_data

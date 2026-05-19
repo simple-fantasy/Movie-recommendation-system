@@ -211,66 +211,6 @@
       </div>
     </section>
 
-    <!-- Search Section -->
-    <section class="mb-5 fade-in-up">
-      <div class="glass-strong p-4 rounded-3">
-        <div class="d-flex align-items-center gap-2 mb-3">
-          <i class="ph ph-magnifying-glass" style="color:var(--cinema-accent);font-size:1.5rem;"></i>
-          <h2 class="h4 mb-0 fw-bold">搜索电影</h2>
-        </div>
-        <div class="cinema-search mb-3" style="position:relative;">
-          <i class="ph ph-magnifying-glass search-icon"></i>
-          <input
-            type="text"
-            v-model="searchQuery"
-            @input="onSearchInput"
-            @keyup.enter="doSearch"
-            @focus="searchQuery && fetchSuggestions()"
-            @blur="setTimeout(() => showSuggestions = false, 200)"
-            placeholder="输入片名关键词，如 Toy Story..."
-          >
-          <!-- Suggestions dropdown -->
-          <div v-if="showSuggestions && searchSuggestions.length" class="search-suggestions">
-            <div v-for="s in searchSuggestions" :key="s"
-                 class="search-suggestion-item"
-                 @mousedown.prevent="selectSuggestion(s)">
-              <i class="ph ph-magnifying-glass" style="font-size:0.8rem;color:var(--cinema-text-muted);"></i>
-              <span v-text="s"></span>
-            </div>
-          </div>
-        </div>
-        <!-- Quick-search tags -->
-        <div class="d-flex flex-wrap gap-1 mb-3">
-          <span class="text-muted small me-1 d-flex align-items-center">
-            <i class="ph ph-fire" style="color:var(--cinema-accent);"></i>
-          </span>
-          <button v-for="tag in searchTags" :key="tag"
-                  class="btn btn-sm btn-cinema-outline"
-                  style="font-size:0.7rem;padding:0.1rem 0.5rem;"
-                  @click="searchByTag(tag)" v-text="tag">
-          </button>
-        </div>
-        <!-- Loading -->
-        <div v-if="searchLoading" class="row g-3">
-          <div v-for="n in 6" :key="n" class="col-6 col-md-4 col-lg-3 col-xl-2">
-            <div class="loading-skeleton" style="aspect-ratio:2/3;"></div>
-          </div>
-        </div>
-        <!-- Results -->
-        <div v-else-if="searchResults.length" class="row g-3">
-          <div v-for="movie in searchResults" :key="movie.id" class="col-6 col-md-4 col-lg-3 col-xl-2">
-            <movie-card :movie="movie" @click="goToMovie" @rate="onRate"></movie-card>
-          </div>
-        </div>
-        <!-- Empty -->
-        <div v-else-if="searched" class="empty-state py-4">
-          <div class="empty-icon">🔍</div>
-          <h5>未找到相关电影</h5>
-          <p>换个关键词试试吧</p>
-        </div>
-      </div>
-    </section>
-
     <!-- My Ratings -->
     <movie-row
       v-if="user"

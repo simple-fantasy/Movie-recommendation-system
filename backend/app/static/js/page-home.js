@@ -61,14 +61,7 @@
         ratingsLoading: true,
         ratingsError: false,
 
-        // Search
-        searchQuery: '',
-        searchResults: [],
-        searchLoading: false,
-        searched: false,
-        searchSuggestions: [],
-        showSuggestions: false,
-        searchTags: ['动作', '喜剧', '科幻', '悬疑', '爱情', '动画', '恐怖', '剧情'],
+        // Search removed — use /advanced-search page instead
 
         // Genre discovery
         genrePills: [
@@ -114,7 +107,6 @@
 
     created() {
       this._charts = [];
-      this._doSearchDebounced = debounce(this.doSearch, 300);
     },
 
     async mounted() {
@@ -234,61 +226,6 @@
           this.ratingsError = true;
         } finally {
           this.ratingsLoading = false;
-        }
-      },
-
-      // ── Search ────────────────────────────────────
-
-      onSearchInput() {
-        this.searched = true;
-        this._doSearchDebounced();
-        this.fetchSuggestions();
-      },
-
-      async fetchSuggestions() {
-        const q = this.searchQuery.trim();
-        if (!q) {
-          this.searchSuggestions = [];
-          this.showSuggestions = false;
-          return;
-        }
-        try {
-          const data = await api('/api/search/suggestions?q=' + encodeURIComponent(q));
-          this.searchSuggestions = (data.suggestions || []).slice(0, 6);
-          this.showSuggestions = this.searchSuggestions.length > 0;
-        } catch (e) {
-          this.searchSuggestions = [];
-          this.showSuggestions = false;
-        }
-      },
-
-      selectSuggestion(title) {
-        this.searchQuery = title;
-        this.showSuggestions = false;
-        this.doSearch();
-      },
-
-      searchByTag(tag) {
-        this.searchQuery = tag;
-        this.doSearch();
-      },
-
-      async doSearch() {
-        const q = this.searchQuery.trim();
-        if (!q) {
-          this.searchResults = [];
-          this.searched = false;
-          return;
-        }
-        this.searchLoading = true;
-        try {
-          const res = await api('/api/movies?q=' + encodeURIComponent(q) + '&limit=12');
-          this.searchResults = (Array.isArray(res) ? res : res.movies || []).map(normalizeMovie);
-        } catch (e) {
-          this.searchResults = [];
-          showToast('搜索失败，请稍后重试', 'error');
-        } finally {
-          this.searchLoading = false;
         }
       },
 

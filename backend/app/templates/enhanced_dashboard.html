@@ -19,14 +19,20 @@
   .segment-pct { font-size:1.5rem; font-weight:700; color:var(--cinema-accent); margin-bottom:.5rem; }
   .heatmap-legend { display:flex; align-items:center; gap:.5rem; font-size:.75rem; color:var(--cinema-text-secondary); margin-top:1rem; }
   .heatmap-gradient { width:100px; height:12px; background:linear-gradient(90deg,#1a1a1a,#2a2a2a,var(--cinema-accent)); border-radius:6px; }
+  .chart-skeleton { background:var(--cinema-surface); border-radius:16px; display:flex; align-items:center; justify-content:center; }
+  .chart-skeleton-inner { display:flex; flex-direction:column; align-items:center; gap:0.75rem; color:var(--cinema-text-muted); }
+  .skeleton-pulse { animation: skPulse 1.5s ease-in-out infinite; }
+  @keyframes skPulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+  .stat-value-e.skeleton-text { height:2rem; background:var(--cinema-surface-elevated); border-radius:8px; width:60%; margin:0 auto 0.25rem; }
 </style>
 {% endblock %}
 {% block content %}
+<!-- DEBUG: v4 页面已加载 -->
 <div class="container-fluid py-4">
   <div class="row mb-4">
     <div class="col-12">
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
-        <div><h1 class="h3 mb-1">增强数据看板</h1><p class="text-secondary mb-0">实时监控系统运营数据和用户行为分析</p></div>
+        <div><h1 class="h3 mb-1">增强数据看板 <small style="color:var(--cinema-accent);font-size:0.7rem;">v4</small></h1><p class="text-secondary mb-0">实时监控系统运营数据和用户行为分析</p></div>
         <div>
           <button id="refresh-dashboard-btn" class="btn btn-cinema-outline btn-sm"><i class="ph ph-arrow-clockwise"></i> 刷新数据</button>
           <button id="export-dashboard-btn" class="btn btn-cinema btn-sm ms-2"><i class="ph ph-download"></i> 导出报告</button>
@@ -35,10 +41,10 @@
     </div>
   </div>
   <div class="row mb-4" id="stats-cards">
-    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-users"></i></div><div class="stat-value-e" id="total-users">-</div><div class="stat-label-e">总用户数</div><div class="stat-trend-e positive" id="users-growth">+0%</div></div></div>
-    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-film-strip"></i></div><div class="stat-value-e" id="total-movies">-</div><div class="stat-label-e">电影总数</div><div class="stat-trend-e positive" id="movies-growth">+0%</div></div></div>
-    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-star"></i></div><div class="stat-value-e" id="total-ratings">-</div><div class="stat-label-e">总评分数</div><div class="stat-trend-e positive" id="ratings-growth">+0%</div></div></div>
-    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-activity"></i></div><div class="stat-value-e" id="active-users-today">-</div><div class="stat-label-e">今日活跃用户</div><div class="stat-trend-e positive" id="activity-trend">+0%</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-users"></i></div><div class="stat-value-e" id="total-users"><span class="skeleton-pulse" style="display:inline-block;width:60%;height:1.5rem;background:var(--cinema-surface-elevated);border-radius:8px;vertical-align:middle;"></span></div><div class="stat-label-e">总用户数</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-film-strip"></i></div><div class="stat-value-e" id="total-movies"><span class="skeleton-pulse" style="display:inline-block;width:60%;height:1.5rem;background:var(--cinema-surface-elevated);border-radius:8px;vertical-align:middle;"></span></div><div class="stat-label-e">电影总数</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-star"></i></div><div class="stat-value-e" id="total-ratings"><span class="skeleton-pulse" style="display:inline-block;width:60%;height:1.5rem;background:var(--cinema-surface-elevated);border-radius:8px;vertical-align:middle;"></span></div><div class="stat-label-e">总评分数</div></div></div>
+    <div class="col-lg-3 col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-activity"></i></div><div class="stat-value-e" id="active-users-today"><span class="skeleton-pulse" style="display:inline-block;width:60%;height:1.5rem;background:var(--cinema-surface-elevated);border-radius:8px;vertical-align:middle;"></span></div><div class="stat-label-e">今日活跃用户</div></div></div>
   </div>
   <div class="row mb-4">
     <div class="col-md-6 mb-3"><div class="stat-card-e"><div class="stat-icon-e"><i class="ph ph-user-plus"></i></div><div class="stat-value-e" id="users-this-week">-</div><div class="stat-label-e">本周新增用户</div><div class="stat-trend-e positive">新增用户</div></div></div>
@@ -48,14 +54,18 @@
     <div class="col-lg-8 mb-3">
       <div class="chart-box">
         <div class="chart-title-e"><span>用户活跃度热力图</span><span class="chart-subtitle-e">过去30天用户活跃时间分布</span></div>
-        <div id="activity-heatmap" style="height:400px;"></div>
+        <div id="activity-heatmap" style="height:400px;">
+          <div class="chart-skeleton skeleton-pulse" style="height:100%;"><div class="chart-skeleton-inner"><i class="ph ph-chart-scatter" style="font-size:2rem;opacity:0.3;"></i><span>加载中...</span></div></div>
+        </div>
         <div class="heatmap-legend"><span>低活跃度</span><div class="heatmap-gradient"></div><span>高活跃度</span></div>
       </div>
     </div>
     <div class="col-lg-4 mb-3">
       <div class="chart-box">
         <div class="chart-title-e"><span>用户分群分析</span><span class="chart-subtitle-e">按活跃度分布</span></div>
-        <div id="user-segments-pie" style="height:300px;"></div>
+        <div id="user-segments-pie" style="height:300px;">
+          <div class="chart-skeleton skeleton-pulse" style="height:100%;"><div class="chart-skeleton-inner"><i class="ph ph-chart-pie" style="font-size:2rem;opacity:0.3;"></i><span>加载中...</span></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -63,13 +73,17 @@
     <div class="col-lg-6 mb-3">
       <div class="chart-box">
         <div class="chart-title-e"><span>热门电影类型</span><span class="chart-subtitle-e">按评分数排序</span></div>
-        <div id="popular-genres-bar" style="height:300px;"></div>
+        <div id="popular-genres-bar" style="height:300px;">
+          <div class="chart-skeleton skeleton-pulse" style="height:100%;"><div class="chart-skeleton-inner"><i class="ph ph-chart-bar" style="font-size:2rem;opacity:0.3;"></i><span>加载中...</span></div></div>
+        </div>
       </div>
     </div>
     <div class="col-lg-6 mb-3">
       <div class="chart-box">
         <div class="chart-title-e"><span>评分偏好分析</span><span class="chart-subtitle-e">用户评分习惯分布</span></div>
-        <div id="rating-preferences-pie" style="height:300px;"></div>
+        <div id="rating-preferences-pie" style="height:300px;">
+          <div class="chart-skeleton skeleton-pulse" style="height:100%;"><div class="chart-skeleton-inner"><i class="ph ph-chart-pie" style="font-size:2rem;opacity:0.3;"></i><span>加载中...</span></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -77,7 +91,9 @@
     <div class="col-12">
       <div class="chart-box">
         <div class="chart-title-e"><span>本月热门电影</span><span class="chart-subtitle-e">按本月评分数排序</span></div>
-        <div id="top-movies-list" class="row"><div class="d-flex justify-content-center align-items-center py-5"><div class="spinner-border text-accent" style="color:var(--cinema-accent)!important;" role="status"></div></div></div>
+        <div id="top-movies-list" class="row">
+          <div class="col-12"><div class="chart-skeleton skeleton-pulse" style="height:80px;"><div class="chart-skeleton-inner"><span>加载中...</span></div></div></div>
+        </div>
       </div>
     </div>
   </div>
@@ -85,12 +101,30 @@
     <div class="col-12">
       <div class="chart-box">
         <div class="chart-title-e"><span>系统健康指标</span><span class="chart-subtitle-e">实时系统状态监控</span></div>
-        <div id="system-health" class="row"><div class="d-flex justify-content-center align-items-center py-5"><div class="spinner-border text-accent" style="color:var(--cinema-accent)!important;" role="status"></div></div></div>
+        <div id="system-health" class="row">
+          <div class="col-12"><div class="chart-skeleton skeleton-pulse" style="height:80px;"><div class="chart-skeleton-inner"><span>加载中...</span></div></div></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_js %}
-<script src="/static/js/page-enhanced-dashboard.js?v=2"></script>
+<script>
+  // 内联 ECharts 加载器 — 确保即使外部 JS 缓存问题也能加载
+  console.log('[EnhancedDashboard] v4 inline script loaded');
+  window.__ENHANCED_DASHBOARD_LOADED = true;
+
+  // 如果外部 JS 在 3 秒内未初始化，内联回退
+  setTimeout(function() {
+    if (!window.__ENHANCED_DASHBOARD_INITIALIZED) {
+      console.warn('[EnhancedDashboard] 外部 JS 未初始化，使用内联回退');
+      // 尝试触发外部 JS 的 init
+      if (typeof window.__initEnhancedDashboard === 'function') {
+        window.__initEnhancedDashboard();
+      }
+    }
+  }, 3000);
+</script>
+<script src="/static/js/page-enhanced-dashboard.js?v=6"></script>
 {% endblock %}

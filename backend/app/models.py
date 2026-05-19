@@ -21,7 +21,7 @@ class User(db.Model, UserMixin):
     is_active = db.Column(db.Boolean, default=True)  # 账户是否激活
     last_login = db.Column(db.DateTime)  # 最后登录时间
     login_count = db.Column(db.Integer, default=0)  # 登录次数
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
 
     ratings = db.relationship("Rating", back_populates="user", cascade="all, delete-orphan")
     reviews = db.relationship("Review", back_populates="user", cascade="all, delete-orphan")
@@ -151,7 +151,7 @@ class Rating(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     movie_id = db.Column(db.Integer, db.ForeignKey("movies.id"), nullable=False, index=True)
     rating = db.Column(db.Float, nullable=False)
-    timestamp = db.Column(db.DateTime, nullable=True)
+    timestamp = db.Column(db.DateTime, nullable=True, index=True)
 
     user = db.relationship("User", back_populates="ratings")
     movie = db.relationship("Movie", back_populates="ratings")

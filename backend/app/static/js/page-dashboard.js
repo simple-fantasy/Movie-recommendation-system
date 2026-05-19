@@ -387,6 +387,39 @@
     });
   }
 
+  // ── Fallback: load via individual API endpoints ────
+
+  const STAT_URLS = {
+    ratings: '/api/stats/ratings',
+    genres: '/api/stats/genres',
+    years: '/api/stats/years',
+    popular: '/api/stats/popular?limit=12',
+    user_activity: '/api/stats/user_activity?limit=12',
+    movie_rating_counts: '/api/stats/movie_rating_counts',
+  };
+
+  async function loadFallback() {
+    // Fire all individual API calls in parallel
+    const results = await Promise.allSettled(
+      Object.entries(STAT_URLS).map(([key, url]) =>
+        fetchJson(url).then(data => ({ key, data })).catch(() => ({ key, data: null }))
+      )
+    );
+    const stats = {};
+    results.forEach(r => {
+      if (r.status === 'fulfilled' && r.value) {
+        stats[r.value.key] = r.value.data;
+      }
+    });
+
+    // Also try evaluation metrics
+    let offlineMetrics = null, multiModel = null;
+    try { offlineMetrics = await fetchJson('/api/metrics/offline'); } catch (e) {}
+    try { multiModel = await fetchJson('/api/metrics/evaluation'); } catch (e) {}
+
+    return { offline_metrics: offlineMetrics, multi_model: multiModel, stats: stats };
+  }
+
   // ── Main load ─────────────────────────────────────
 
   let loading = false;
@@ -399,7 +432,13 @@
     if (btn) btn.classList.add('spinning');
 
     try {
-      dashboardData = await fetchJson('/api/dashboard/overview');
+      // Try unified endpoint first, fall back to individual calls
+      try {
+        dashboardData = await fetchJson('/api/dashboard/overview');
+      } catch (e) {
+        console.warn('Unified API unavailable, falling back to individual endpoints');
+        dashboardData = await loadFallback();
+      }
 
       // Render non-chart sections immediately
       renderOfflineMetrics(dashboardData.offline_metrics);
@@ -410,7 +449,6 @@
       initChartsWhenVisible();
     } catch (e) {
       console.error('Dashboard load failed:', e);
-      // Show error on all chart containers
       Object.keys(chartRenderers).forEach(id => {
         setError(document.getElementById(id), '数据加载失败，请刷新重试');
       });
