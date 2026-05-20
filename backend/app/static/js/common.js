@@ -172,7 +172,7 @@ function hasValidPoster(url) {
  */
 function optimizePosterUrl(url, size) {
   if (!url || !url.includes('image.tmdb.org/t/p/')) return url;
-  return url.replace(/\/t\/p\/\w+\//, '/t/p/' + (size || 'w342') + '/');
+  return url.replace(/\/t\/p\/\w+\//, '/t/p/' + (size || 'w185') + '/');
 }
 
 function posterGradientStyle(title) {

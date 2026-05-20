@@ -616,33 +616,49 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
     if cached is not None:
         return cached
 
-    movies = (
-        db.session.query(Movie, db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"), db.func.count(Rating.id).label("cnt"))
-        .outerjoin(Rating, Rating.movie_id == Movie.id)
-        .filter(Movie.poster_url.isnot(None), Movie.poster_url != "", db.not_(Movie.poster_url.contains("placeholder")))
-        .group_by(Movie.id)
-        .having(db.func.count(Rating.id) >= 50)
-        .order_by(db.desc("avg_rating"), db.desc("cnt"))
-        .limit(top_n)
-        .all()
-    )
-    result = [
-        {
-            "id": m.id,
-            "title": m.title,
-            "year": m.year,
-            "genres": m.genres,
-            "avg_rating": float(avg),
-            "rating_count": int(cnt),
-            "score": None,  # no recommendation score for popular fallback
-            "poster": m.poster_url,
-            "backdrop": m.backdrop_url,
-            "overview": m.description,
-            "reason": "popular",
-            "because": None,
-        }
-        for (m, avg, cnt) in movies
-    ]
+    result = []
+    for min_ratings in (50, 10, 1, 0):
+        query = (
+            db.session.query(
+                Movie,
+                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"),
+                db.func.count(Rating.id).label("cnt"),
+            )
+            .outerjoin(Rating, Rating.movie_id == Movie.id)
+            .filter(
+                Movie.poster_url.isnot(None),
+                Movie.poster_url != "",
+                db.not_(Movie.poster_url.contains("placeholder")),
+            )
+            .group_by(Movie.id)
+        )
+        if min_ratings > 0:
+            query = query.having(db.func.count(Rating.id) >= min_ratings)
+        movies = (
+            query.order_by(db.desc("avg_rating"), db.desc("cnt"))
+            .limit(top_n)
+            .all()
+        )
+        if movies:
+            result = [
+                {
+                    "id": m.id,
+                    "title": m.title,
+                    "year": m.year,
+                    "genres": m.genres,
+                    "avg_rating": float(avg),
+                    "rating_count": int(cnt),
+                    "score": None,
+                    "poster": m.poster_url,
+                    "backdrop": m.backdrop_url,
+                    "overview": m.description,
+                    "reason": "popular",
+                    "because": None,
+                }
+                for (m, avg, cnt) in movies
+            ]
+            break
+
     cache.set(cache_key, result, timeout=120)
     return result
 
@@ -813,13 +829,17 @@ def stats_ratings():
 
 
 @bp.get("/api/stats/genres")
-@cache.cached(timeout=600)  # 缓存10分钟（FileSystemCache 跨重启持久化）
+@cache.cached(timeout=600)
 def stats_genres():
-    rows = db.session.query(Movie.genres, db.func.count(Rating.id)).join(Rating, Rating.movie_id == Movie.id).group_by(Movie.genres).all()
+    """电影类型分布 — 直接从 Movie 表统计（避免 JOIN Rating 大表）"""
+    rows = (
+        db.session.query(Movie.genres, db.func.count(Movie.id))
+        .filter(Movie.genres.isnot(None), Movie.genres != '')
+        .group_by(Movie.genres)
+        .all()
+    )
     counts: dict[str, int] = {}
     for genres, cnt in rows:
-        if not genres:
-            continue
         for g in str(genres).split("|"):
             g = g.strip()
             if not g or g == "(no genres listed)":
@@ -831,12 +851,16 @@ def stats_genres():
 
 
 @bp.get("/api/stats/years")
-@cache.cached(timeout=600)  # 缓存10分钟（FileSystemCache 跨重启持久化）
+@cache.cached(timeout=600)
 def stats_years():
+    """年份趋势 — 使用预计算 avg_rating 和 rating_count（避免 JOIN Rating 大表）"""
     rows = (
-        db.session.query(Movie.year, db.func.count(Rating.id).label("cnt"), db.func.avg(Rating.rating).label("avg"))
-        .join(Rating, Rating.movie_id == Movie.id)
-        .filter(Movie.year.isnot(None))
+        db.session.query(
+            Movie.year,
+            db.func.coalesce(db.func.sum(Movie.rating_count), 0).label("total_ratings"),
+            db.func.coalesce(db.func.avg(Movie.avg_rating), 0).label("avg_r"),
+        )
+        .filter(Movie.year.isnot(None), Movie.year > 1900)
         .group_by(Movie.year)
         .order_by(Movie.year.asc())
         .all()
@@ -851,26 +875,23 @@ def stats_years():
 
 
 @bp.get("/api/stats/popular")
-@cache.cached(timeout=300, query_string=True)  # 缓存5分钟，考虑limit参数
+@cache.cached(timeout=300, query_string=True)
 def stats_popular():
+    """热门电影 — 使用预计算的 rating_count 和 avg_rating（避免 JOIN Rating 大表）"""
     limit = min(int(request.args.get("limit") or 10), 50)
     rows = (
-        db.session.query(
-            Movie.title,
-            db.func.count(Rating.id).label("rating_count"),
-            db.func.avg(Rating.rating).label("avg_rating"),
+        Movie.query.with_entities(
+            Movie.title, Movie.rating_count, Movie.avg_rating
         )
-        .join(Rating, Rating.movie_id == Movie.id)
-        .group_by(Movie.id)
-        .order_by(db.desc("rating_count"), db.desc("avg_rating"))
+        .order_by(Movie.rating_count.desc(), Movie.avg_rating.desc())
         .limit(limit)
         .all()
     )
     return jsonify(
         {
             "labels": [t for t, _c, _a in rows],
-            "counts": [int(c) for _t, c, _a in rows],
-            "avg_ratings": [float(a) for _t, _c, a in rows],
+            "counts": [int(c or 0) for _t, c, _a in rows],
+            "avg_ratings": [float(a or 0) for _t, _c, a in rows],
         }
     )
 
@@ -999,15 +1020,14 @@ def dashboard_overview():
     except Exception:
         result["stats"]["genres"] = None
 
-    # ── 年份趋势 ──
+    # ── 年份趋势（使用预计算列，避免 JOIN Rating 大表）──
     try:
         year_rows = (
             db.session.query(
                 Movie.year,
-                db.func.count(Rating.id).label("cnt"),
-                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_r"),
+                db.func.coalesce(db.func.sum(Movie.rating_count), 0).label("total"),
+                db.func.coalesce(db.func.avg(Movie.avg_rating), 0).label("avg_r"),
             )
-            .join(Rating, Rating.movie_id == Movie.id)
             .filter(Movie.year.isnot(None), Movie.year > 1900)
             .group_by(Movie.year)
             .order_by(Movie.year)
@@ -1021,24 +1041,20 @@ def dashboard_overview():
     except Exception:
         result["stats"]["years"] = None
 
-    # ── 热门电影 ──
+    # ── 热门电影（使用预计算 rating_count/avg_rating）──
     try:
         popular = (
-            db.session.query(
-                Movie.title,
-                db.func.count(Rating.id).label("cnt"),
-                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_r"),
+            Movie.query.with_entities(
+                Movie.title, Movie.rating_count, Movie.avg_rating
             )
-            .join(Rating, Rating.movie_id == Movie.id)
-            .group_by(Movie.id)
-            .order_by(db.desc("cnt"))
+            .order_by(Movie.rating_count.desc(), Movie.avg_rating.desc())
             .limit(12)
             .all()
         )
         result["stats"]["popular"] = {
             "labels": [t for t, _, _ in popular],
-            "counts": [int(c) for _, c, _ in popular],
-            "avg_ratings": [float(a) for _, _, a in popular],
+            "counts": [int(c or 0) for _, c, _ in popular],
+            "avg_ratings": [float(a or 0) for _, _, a in popular],
         }
     except Exception:
         result["stats"]["popular"] = None

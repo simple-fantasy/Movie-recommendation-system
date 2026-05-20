@@ -198,6 +198,14 @@
         }
       },
 
+      // 供模板 @click 和评分后刷新调用的别名
+      async loadRecommendations() {
+        await this.loadAllContent();
+      },
+      async loadPopular() {
+        await this.loadAllContent();
+      },
+
       nextHero() {
         if (!this.heroPool.length) return;
         this.heroIndex = (this.heroIndex + 1) % this.heroPool.length;

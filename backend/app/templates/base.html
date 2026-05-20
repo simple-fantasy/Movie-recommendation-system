@@ -13,6 +13,10 @@
   <link rel="preload" href="/static/css/cinema-theme.css?v=3" as="style">
   <link rel="preload" href="/static/vendor/vue.global.js?v=2" as="script">
 
+  <!-- 预连接 TMDB 图片 CDN，加速封面加载 -->
+  <link rel="dns-prefetch" href="//image.tmdb.org">
+  <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
+
   <!-- Bootstrap 5.3 (local) -->
   <link href="/static/vendor/bootstrap.min.css?v=2" rel="stylesheet">
   <!-- Phosphor Icons (local loader, fetches CSS from jsdelivr) -->
@@ -117,7 +121,7 @@
   <script defer src="/static/vendor/ScrollTrigger.min.js?v=2"></script>
   <script defer src="/static/echarts/echarts.min.js?v=2"></script>
   <script src="/static/js/api.js?v=3"></script>
-  <script src="/static/js/common.js?v=3"></script>
+  <script src="/static/js/common.js?v=4"></script>
   <script src="/static/js/vue-components.js?v=4"></script>
 
   <script>

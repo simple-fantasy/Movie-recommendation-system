@@ -20,7 +20,7 @@
     </div>
     <!-- Content -->
     <div v-else class="backdrop">
-      <img v-if="heroMovie.backdrop || heroMovie.poster" :src="heroMovie.backdrop || heroMovie.poster" :alt="heroMovie.title" @error="heroPosterFailed = true">
+      <img v-if="heroMovie.backdrop || heroMovie.poster" :src="heroMovie.backdrop || heroMovie.poster" :alt="heroMovie.title" @error="heroPosterFailed = true" fetchpriority="high">
       <div v-if="heroPosterFailed || (!heroMovie.backdrop && !heroMovie.poster)" class="poster-gradient" :style="heroGradStyle">
         <span class="poster-initial">{{ heroInitial }}</span>
       </div>
@@ -294,5 +294,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="/static/js/page-home.js?v=4" defer></script>
+<script src="/static/js/page-home.js?v=5" defer></script>
 {% endblock %}
