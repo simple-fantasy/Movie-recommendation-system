@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}账户设置 - 电影推荐系统{% endblock %}
+
+{% block extra_css %}
+<style>
+  .settings-container {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 1.5rem 0;
+  }
+  .settings-card {
+    background: var(--bs-card-bg, rgba(15, 23, 42, 0.85));
+    border: 1px solid var(--bs-border-color, rgba(148, 163, 184, 0.15));
+    border-radius: 16px;
+    padding: 2rem;
+    margin-bottom: 1.5rem;
+    backdrop-filter: blur(10px);
+  }
+  .settings-card h3 {
+    font-family: 'Playfair Display', serif;
+    color: var(--bs-heading-color, #f8fafc);
+    margin-bottom: 0.25rem;
+  }
+  .settings-card .card-desc {
+    color: var(--bs-secondary-color, #94a3b8);
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem;
+  }
+  .tab-switcher {
+    display: flex;
+    background: rgba(30, 41, 59, 0.8);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: all 0.3s;
+  }
+  .tab-btn.active {
+    background: #f59e0b;
+    color: #0a0e1a;
+  }
+  .form-group {
+    margin-bottom: 1.1rem;
+  }
+  .form-label {
+    display: block;
+    margin-bottom: 0.4rem;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .form-control, .form-select {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 10px;
+    color: #f8fafc;
+    font-size: 0.9rem;
+    transition: all 0.3s;
+  }
+  .form-control:focus, .form-select:focus {
+    outline: none;
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    background: rgba(30, 41, 59, 0.7);
+  }
+  .form-select option { background: #1e293b; color: #f8fafc; }
+  .btn-gold {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border: none;
+    border-radius: 10px;
+    color: #0a0e1a;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25); }
+  .btn-gold:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .alert-toast {
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
+    display: none;
+  }
+  .alert-toast.show { display: block; }
+  .alert-toast.success { background: rgba(34, 197, 94, 0.12); border: 1px solid rgba(34, 197, 94, 0.3); color: #4ade80; }
+  .alert-toast.error { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: #f87171; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="settingsApp" class="settings-container">
+  <div class="settings-card">
+    <h3>账户设置</h3>
+    <p class="card-desc">管理您的账户安全设置</p>
+
+    <div class="tab-switcher">
+      <button class="tab-btn" :class="{ active: activeTab === 'security' }" @click="activeTab = 'security'">
+        密保问题
+      </button>
+      <button class="tab-btn" :class="{ active: activeTab === 'password' }" @click="activeTab = 'password'">
+        修改密码
+      </button>
+    </div>
+
+    <!-- Toast -->
+    <div class="alert-toast" :class="[toast.type, { show: toast.visible }]" v-text="toast.message"></div>
+
+    <!-- Security Question Tab -->
+    <div v-show="activeTab === 'security'">
+      <p style="color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem;">
+        设置密保问题后，您可以通过回答密保问题找回密码。
+      </p>
+      <div class="form-group">
+        <label class="form-label">密保问题</label>
+        <select class="form-select" v-model="sqQuestion" @change="onQuestionChange">
+          <option value="">请选择密保问题</option>
+          <option value="你最喜欢的电影是什么？">你最喜欢的电影是什么？</option>
+          <option value="你童年时的昵称是什么？">你童年时的昵称是什么？</option>
+          <option value="你第一辆车的品牌是什么？">你第一辆车的品牌是什么？</option>
+          <option value="你第一位老师的名字是什么？">你第一位老师的名字是什么？</option>
+          <option value="你出生的城市是哪里？">你出生的城市是哪里？</option>
+          <option value="__custom__">自定义问题...</option>
+        </select>
+      </div>
+      <div class="form-group" v-if="sqQuestion === '__custom__'">
+        <label class="form-label">自定义问题</label>
+        <input type="text" class="form-control" v-model="sqCustomQuestion" placeholder="请输入您的自定义问题" maxlength="255" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">答案</label>
+        <input type="text" class="form-control" v-model="sqAnswer" placeholder="请输入答案" />
+      </div>
+      <button class="btn-gold" @click="saveSecurityQuestion" :disabled="sqSaving">
+        {% raw %}{{ sqSaving ? '保存中...' : '保存设置' }}{% endraw %}
+      </button>
+    </div>
+
+    <!-- Change Password Tab -->
+    <div v-show="activeTab === 'password'">
+      <div class="form-group">
+        <label class="form-label">当前密码</label>
+        <input type="password" class="form-control" v-model="cpCurrent" placeholder="请输入当前密码" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">新密码</label>
+        <input type="password" class="form-control" v-model="cpNew" placeholder="请输入新密码（至少6位）" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">确认新密码</label>
+        <input type="password" class="form-control" v-model="cpConfirm" placeholder="再次输入新密码" />
+      </div>
+      <button class="btn-gold" @click="changePassword" :disabled="cpSaving">
+        {% raw %}{{ cpSaving ? '修改中...' : '修改密码' }}{% endraw %}
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="/static/vendor/vue.global.js?v=2"></script>
+<script src="/static/js/api.js?v=2"></script>
+<script src="/static/js/page-user-settings.js?v=1"></script>
+{% endblock %}

@@ -150,7 +150,7 @@ def add_movie():
         movie = Movie(
             title=title,
             year=year,
-            status='pending'
+            status='active'
         )
         
         db.session.add(movie)
@@ -295,6 +295,30 @@ def delete_movie(movie_id):
         db.session.rollback()
         flash(f'删除失败: {e}', 'error')
     
+    return redirect(url_for('admin.movies_list'))
+
+
+@admin_bp.post('/movies/<int:movie_id>/approve')
+@login_required
+@admin_required
+def approve_movie(movie_id):
+    """审核通过用户提交的电影"""
+    movie = Movie.query.get_or_404(movie_id)
+    movie.status = 'active'
+    db.session.commit()
+    flash(f'电影《{movie.title}》已审核通过', 'success')
+    return redirect(url_for('admin.movies_list'))
+
+
+@admin_bp.post('/movies/<int:movie_id>/reject')
+@login_required
+@admin_required
+def reject_movie(movie_id):
+    """拒绝用户提交的电影"""
+    movie = Movie.query.get_or_404(movie_id)
+    movie.status = 'inactive'
+    db.session.commit()
+    flash(f'电影《{movie.title}》已被拒绝', 'warning')
     return redirect(url_for('admin.movies_list'))
 
 

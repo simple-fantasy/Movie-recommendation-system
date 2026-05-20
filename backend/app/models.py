@@ -22,6 +22,8 @@ class User(db.Model, UserMixin):
     last_login = db.Column(db.DateTime)  # 最后登录时间
     login_count = db.Column(db.Integer, default=0)  # 登录次数
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    security_question = db.Column(db.String(255), nullable=True)
+    security_answer_hash = db.Column(db.String(256), nullable=True)
 
     ratings = db.relationship("Rating", back_populates="user", cascade="all, delete-orphan")
     reviews = db.relationship("Review", back_populates="user", cascade="all, delete-orphan")
@@ -32,7 +34,15 @@ class User(db.Model, UserMixin):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
-    
+
+    def set_security_answer(self, answer: str) -> None:
+        self.security_answer_hash = generate_password_hash(answer.strip().lower())
+
+    def check_security_answer(self, answer: str) -> bool:
+        if not self.security_answer_hash:
+            return False
+        return check_password_hash(self.security_answer_hash, answer.strip().lower())
+
     def make_admin(self):
         """设置为管理员"""
         self.is_admin = True
@@ -94,6 +104,7 @@ class Movie(db.Model):
     
     # 管理字段
     status = db.Column(db.Enum('active', 'inactive', 'pending'), default='active', index=True)
+    submitted_by = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
     is_featured = db.Column(db.Boolean, default=False)
     view_count = db.Column(db.Integer, default=0)
     rating_count = db.Column(db.Integer, default=0)
@@ -107,6 +118,7 @@ class Movie(db.Model):
     collections = db.relationship("UserCollection", back_populates="movie", cascade="all, delete-orphan")
     reviews = db.relationship("Review", back_populates="movie", cascade="all, delete-orphan")
     watch_links = db.relationship("WatchLink", back_populates="movie", cascade="all, delete-orphan")
+    submitter = db.relationship("User", foreign_keys=[submitted_by], backref="submitted_movies")
     
     # 辅助方法
     def get_actors_list(self) -> list:

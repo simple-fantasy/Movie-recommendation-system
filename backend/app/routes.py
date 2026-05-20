@@ -146,6 +146,17 @@ def login_page():
     return render_template("login.html")
 
 
+@bp.get("/forgot-password")
+def forgot_password_page():
+    return render_template("forgot_password.html")
+
+
+@bp.get("/upload-movie")
+@login_required
+def upload_movie_page():
+    return render_template("upload_movie.html")
+
+
 @bp.get("/recommendations")
 def recommendations_page():
     return render_template("recommendations.html")
@@ -277,18 +288,99 @@ def logout():
     return jsonify({"ok": True})
 
 
+@bp.post("/api/auth/forgot-password/check")
+def forgot_password_check():
+    """Step 1: 输入用户名，返回密保问题"""
+    data = request.get_json(force=True)
+    username = (data.get("username") or "").strip()
+    if not username:
+        return jsonify({"error": "请输入用户名"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user or not user.security_question or not user.security_answer_hash:
+        return jsonify({"error": "无法处理该请求"}), 400
+
+    return jsonify({"username": username, "question": user.security_question})
+
+
+@bp.post("/api/auth/forgot-password/reset")
+def forgot_password_reset():
+    """Step 2: 验证密保答案并重置密码"""
+    data = request.get_json(force=True)
+    username = (data.get("username") or "").strip()
+    answer = (data.get("answer") or "").strip()
+    new_password = data.get("new_password") or ""
+
+    if not username or not answer or not new_password:
+        return jsonify({"error": "请填写所有必填字段"}), 400
+    if len(new_password) < 6:
+        return jsonify({"error": "新密码至少需要6个字符"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if not user:
+        return jsonify({"error": "用户不存在"}), 404
+    if not user.check_security_answer(answer):
+        return jsonify({"error": "安全问题答案不正确"}), 401
+
+    user.set_password(new_password)
+    db.session.commit()
+    return jsonify({"success": True, "message": "密码已重置，请使用新密码登录"})
+
+
+@bp.post("/api/user/security-question")
+@login_required
+def set_security_question():
+    """设置或更新密保问题"""
+    data = request.get_json(force=True)
+    question = (data.get("question") or "").strip()
+    answer = (data.get("answer") or "").strip()
+
+    if not question or not answer:
+        return jsonify({"error": "问题和答案不能为空"}), 400
+    if len(question) > 255:
+        return jsonify({"error": "问题长度不能超过255个字符"}), 400
+    if len(answer) < 2:
+        return jsonify({"error": "答案至少需要2个字符"}), 400
+
+    current_user.security_question = question
+    current_user.set_security_answer(answer)
+    db.session.commit()
+    return jsonify({"success": True, "message": "安全问题和答案已设置"})
+
+
+@bp.post("/api/user/change-password")
+@login_required
+def change_password():
+    """修改密码（需验证当前密码）"""
+    data = request.get_json(force=True)
+    current_pw = data.get("current_password") or ""
+    new_pw = data.get("new_password") or ""
+
+    if not current_pw or not new_pw:
+        return jsonify({"error": "请填写当前密码和新密码"}), 400
+    if len(new_pw) < 6:
+        return jsonify({"error": "新密码至少需要6个字符"}), 400
+    if not current_user.check_password(current_pw):
+        return jsonify({"error": "当前密码不正确"}), 401
+
+    current_user.set_password(new_pw)
+    db.session.commit()
+    return jsonify({"success": True, "message": "密码已修改"})
+
+
 @bp.get("/api/me")
 def me():
     if not current_user.is_authenticated:
         return jsonify({"authenticated": False})
     return jsonify({
-        "authenticated": True, 
-        "id": current_user.id, 
+        "authenticated": True,
+        "id": current_user.id,
         "username": current_user.username,
         "is_admin": current_user.is_admin,
         "is_active": current_user.is_active,
         "login_count": current_user.login_count,
-        "last_login": current_user.last_login.isoformat() if current_user.last_login else None
+        "last_login": current_user.last_login.isoformat() if current_user.last_login else None,
+        "security_question_set": bool(current_user.security_question and current_user.security_answer_hash)
     })
 
 
@@ -1704,6 +1796,86 @@ def report_watch_link(link_id):
     })
 
 
+# ==================== 用户上传电影 API ====================
+
+@bp.post("/api/movies/submit")
+@login_required
+def submit_movie():
+    """用户提交电影（待管理员审核）"""
+    data = request.get_json(force=True)
+
+    title = (data.get("title") or "").strip()
+    if not title:
+        return jsonify({"error": "电影标题不能为空"}), 400
+
+    year = data.get("year")
+    director = (data.get("director") or "").strip() or None
+    description = (data.get("description") or "").strip() or None
+    poster_url = (data.get("poster_url") or "").strip() or None
+    backdrop_url = (data.get("backdrop_url") or "").strip() or None
+    trailer_url = (data.get("trailer_url") or "").strip() or None
+    genres = (data.get("genres") or "").strip() or None
+    actors_str = (data.get("actors") or "").strip()
+    runtime = data.get("runtime")
+    language = (data.get("language") or "").strip() or None
+    country = (data.get("country") or "").strip() or None
+    tagline = (data.get("tagline") or "").strip() or None
+
+    for field_name, url_value in [("poster_url", poster_url), ("backdrop_url", backdrop_url), ("trailer_url", trailer_url)]:
+        if url_value and not url_value.startswith(("http://", "https://")):
+            return jsonify({"error": f"{field_name} 格式不正确"}), 400
+
+    existing = Movie.query.filter_by(title=title, year=year).first()
+    if existing:
+        return jsonify({"error": "该电影已存在"}), 409
+
+    actors_list = [a.strip() for a in actors_str.split(",") if a.strip()] if actors_str else []
+
+    movie = Movie(
+        title=title,
+        year=year,
+        director=director,
+        description=description,
+        poster_url=poster_url,
+        backdrop_url=backdrop_url,
+        trailer_url=trailer_url,
+        genres=genres,
+        runtime=runtime,
+        language=language,
+        country=country,
+        tagline=tagline,
+        status='pending',
+        submitted_by=current_user.id
+    )
+    if actors_list:
+        movie.set_actors_list(actors_list)
+
+    db.session.add(movie)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "message": "电影提交成功，等待管理员审核",
+        "movie_id": movie.id
+    }), 201
+
+
+@bp.get("/api/my/submitted-movies")
+@login_required
+def my_submitted_movies():
+    """获取当前用户提交的电影列表"""
+    page = request.args.get('page', 1, type=int)
+    pagination = Movie.query.filter_by(submitted_by=current_user.id)\
+        .order_by(Movie.created_at.desc())\
+        .paginate(page=page, per_page=10, error_out=False)
+
+    return jsonify({
+        "movies": [m.to_dict() for m in pagination.items],
+        "total": pagination.total,
+        "pages": pagination.pages
+    })
+
+
 # ==================== 消息通知系统API ====================
 
 @bp.get("/api/notifications")
@@ -3100,6 +3272,13 @@ def get_recommendation_reason():
 def user_profile_page():
     """用户画像页面"""
     return render_template('user_profile.html')
+
+
+@bp.get("/user/settings")
+@login_required
+def user_settings_page():
+    """用户账户设置页面"""
+    return render_template('user_settings.html')
 
 
 @bp.get("/user/insights")
