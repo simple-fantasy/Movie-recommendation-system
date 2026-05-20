@@ -39,8 +39,8 @@
             
             <div class="small text-muted">
                 <p class="mb-1"><strong>ID:</strong> {{ movie.id }}</p>
-                <p class="mb-1"><strong>创建时间:</strong> {{ movie.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
-                <p class="mb-1"><strong>更新时间:</strong> {{ movie.updated_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                <p class="mb-1"><strong>创建时间:</strong> {{ movie.created_at|safe_date('%Y-%m-%d %H:%M') }}</p>
+                <p class="mb-1"><strong>更新时间:</strong> {{ movie.updated_at|safe_date('%Y-%m-%d %H:%M') }}</p>
                 {% if movie.tmdb_id %}
                     <p class="mb-1"><strong>TMDB ID:</strong> {{ movie.tmdb_id }}</p>
                 {% endif %}

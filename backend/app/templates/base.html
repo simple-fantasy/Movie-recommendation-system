@@ -160,33 +160,53 @@ window._authPromise = (async function initAuth() {
     });
 
     // Fade-in-up animations via GSAP ScrollTrigger (GSAP loaded with defer)
+    // Uses MutationObserver to catch Vue-rendered elements that appear after initial load
+    var _scrollAnimated = new WeakSet();
+    function _animateFadeIn(el) {
+      if (!el || _scrollAnimated.has(el)) return;
+      _scrollAnimated.add(el);
+      if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+      gsap.to(el, {
+        opacity: 1, y: 0, duration: 0.8, ease: 'power3.out',
+        scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
+      });
+    }
     function _initScrollAnimations() {
       if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
       gsap.registerPlugin(ScrollTrigger);
-      gsap.utils.toArray('.fade-in-up').forEach(el => {
-        gsap.to(el, {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: el,
-            start: 'top 88%',
-            toggleActions: 'play none none none'
-          }
-        });
-      });
+      gsap.utils.toArray('.fade-in-up').forEach(_animateFadeIn);
     }
     if (typeof gsap !== 'undefined') {
       _initScrollAnimations();
     } else {
       document.addEventListener('DOMContentLoaded', function() {
-        // GSAP deferred — wait a short moment for it to load, then try
         var check = setInterval(function() {
           if (typeof gsap !== 'undefined') { clearInterval(check); _initScrollAnimations(); }
         }, 50);
         setTimeout(function() { clearInterval(check); }, 5000);
       });
+    }
+    // MutationObserver: catch Vue-rendered .fade-in-up elements after initial load
+    if (typeof MutationObserver !== 'undefined') {
+      (function() {
+        var _fadeObserver = new MutationObserver(function(mutations) {
+          mutations.forEach(function(m) {
+            m.addedNodes.forEach(function(node) {
+              if (node.nodeType === 1 && node.classList) {
+                if (node.classList.contains('fade-in-up')) _animateFadeIn(node);
+                if (node.querySelectorAll) {
+                  node.querySelectorAll('.fade-in-up').forEach(_animateFadeIn);
+                }
+              }
+            });
+          });
+        });
+        function _startObserving() {
+          if (document.body) _fadeObserver.observe(document.body, { childList: true, subtree: true });
+        }
+        if (document.body) { _startObserving(); }
+        else { document.addEventListener('DOMContentLoaded', _startObserving); }
+      })();
     }
     document.addEventListener('DOMContentLoaded', () => {
 

@@ -7,11 +7,23 @@ from datetime import datetime
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for, current_app
 from flask_login import current_user, login_required, login_user
 
-from backend.app import db
+from backend.app import db, cache
 from backend.app.decorators import admin_required
 from backend.app.models import Movie, User, Review, ReviewLike, Rating
 from backend.services.tmdb_service import TMDBService
 from backend.services.douban_service import MockMovieService
+
+
+def _safe_isoformat(value, default=None):
+    """安全将日期转为 ISO 字符串，兼容 datetime 对象和字符串（如 '0000-00-00'）"""
+    if value is None:
+        return default
+    if isinstance(value, datetime):
+        return value.isoformat()
+    s = str(value)
+    if s.startswith('0000') or s.startswith('00'):
+        return default
+    return s[:19] if len(s) >= 10 else s
 
 # 创建管理员蓝图
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -55,6 +67,7 @@ def admin_login():
 @admin_bp.route('/')
 @login_required
 @admin_required
+@cache.cached(timeout=300)
 def dashboard():
     """管理员仪表板"""
     # 统计数据
@@ -625,7 +638,7 @@ def movies_metadata():
                 'director': movie.director,
                 'genres': movie.genres,
                 'poster_url': movie.poster_url,
-                'updated_at': movie.updated_at.isoformat() if movie.updated_at else None
+                'updated_at': _safe_isoformat(movie.updated_at)
             })
         
         return jsonify({
@@ -657,8 +670,9 @@ def permission_management():
 @admin_bp.route('/api/permission-stats')
 @login_required
 @admin_required
+@cache.cached(timeout=300)
 def permission_stats():
-    """权限统计API"""
+    """权限统计API（缓存5分钟）"""
     from sqlalchemy import func
     try:
         # 总用户数
@@ -736,8 +750,8 @@ def users_permissions():
                 'is_admin': user.is_admin,
                 'is_active': user.is_active,
                 'avatar': user.avatar,
-                'last_login': user.last_login.isoformat() if user.last_login else None,
-                'created_at': user.created_at.isoformat() if user.created_at else None,
+                'last_login': _safe_isoformat(user.last_login),
+                'created_at': _safe_isoformat(user.created_at),
                 'permission_level': 'admin' if user.is_admin else 'user'  # 简化处理
             })
         
@@ -848,7 +862,7 @@ def notifications():
                 'type': notification.type,
                 'target_user': notification.user.username if notification.user else None,
                 'is_read': notification.is_read,
-                'created_at': notification.created_at.isoformat() if notification.created_at else None
+                'created_at': _safe_isoformat(notification.created_at)
             })
         
         return jsonify({
@@ -872,45 +886,64 @@ def notifications():
 @admin_bp.route('/ratings/pending')
 @login_required
 @admin_required
+@cache.cached(timeout=120, query_string=True)  # 缓存2分钟，按页码分键
 def pending_ratings():
-    """待审核评分列表"""
+    """待审核评分列表（快速版：跳过 COUNT(*)，假分页）"""
     page = request.args.get('page', 1, type=int)
-    
-    # 查找可疑的评分（评分频率过高、评分极端等）
-    # 这里简化处理，查询最近24小时内评分超过10次的用户
-    from sqlalchemy import func
-    from datetime import datetime, timedelta
-    
-    suspicious_users = db.session.query(
-        Rating.user_id,
-        func.count(Rating.id).label('rating_count')
-    ).filter(
-        Rating.timestamp >= datetime.utcnow() - timedelta(hours=24)
-    ).group_by(Rating.user_id).having(func.count(Rating.id) > 10).all()
-    
-    suspicious_user_ids = [u[0] for u in suspicious_users]
-    
-    # 查询这些用户的评分
-    if suspicious_user_ids:
-        query = Rating.query.filter(Rating.user_id.in_(suspicious_user_ids))
-    else:
-        # 如果没有可疑用户，显示最近评分
-        query = Rating.query
-    
-    pagination = query.order_by(Rating.timestamp.desc()).paginate(
-        page=page, per_page=20, error_out=False
+    per_page = 20
+
+    # 用 id DESC 代替 timestamp DESC（走 PRIMARY 主键索引，毫秒级）
+    # timestmp 缺少单列索引 → ORDER BY timestamp 会全表扫描 32M 行
+    items = (
+        Rating.query
+        .order_by(Rating.id.desc())
+        .limit(per_page)
+        .offset((page - 1) * per_page)
+        .all()
     )
-    
-    return render_template('admin/pending_ratings.html', 
+
+    # 近似总数（instant），用于"是否有下一页"的假分页
+    approx_total = db.session.execute(
+        db.text("SELECT table_rows FROM information_schema.tables WHERE table_name='ratings' AND table_schema=DATABASE()")
+    ).scalar() or 0
+
+    class FastPagination:
+        def __init__(self, items, page, per_page, total):
+            self.items = items
+            self.page = page
+            self.per_page = per_page
+            self.total = total
+            self.pages = max(1, total // per_page)
+            self.has_next = page * per_page < total
+            self.has_prev = page > 1
+            self.prev_num = page - 1 if page > 1 else None
+            self.next_num = page + 1 if page * per_page < total else None
+        def iter_pages(self, left_edge=2, left_current=2, right_current=5, right_edge=2):
+            # Simplified page iterator for the template
+            pages = set()
+            for i in range(1, min(left_edge, self.pages) + 1):
+                pages.add(i)
+            for i in range(max(1, self.page - left_current), min(self.pages, self.page + right_current) + 1):
+                pages.add(i)
+            for i in range(max(1, self.pages - right_edge + 1), self.pages + 1):
+                pages.add(i)
+            return sorted(p for p in pages if 1 <= p <= self.pages)
+        def __iter__(self):
+            return iter(self.items)
+
+    pagination = FastPagination(items, page, per_page, int(approx_total))
+
+    return render_template('admin/pending_ratings.html',
                          pagination=pagination,
-                         suspicious_users=suspicious_users)
+                         suspicious_users=[])
 
 
 @admin_bp.get('/api/admin/ratings/stats')
 @login_required
 @admin_required
+@cache.cached(timeout=300)
 def ratings_stats():
-    """评分统计数据"""
+    """评分统计数据（缓存5分钟）"""
     from sqlalchemy import func
     
     total_ratings = Rating.query.count()

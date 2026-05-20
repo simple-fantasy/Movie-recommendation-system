@@ -36,6 +36,7 @@ class Config:
     # 缓存配置
     CACHE_TYPE = _settings.cache_type
     CACHE_DEFAULT_TIMEOUT = _settings.cache_default_timeout
+    CACHE_DIR = _settings.cache_dir
     
     # 限流配置
     RATE_LIMIT_ENABLED = _settings.rate_limit_enabled

@@ -45,6 +45,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentSort = 'relevance';
   let currentQuery = '';
   let currentPage = 1;
+  let _cachedResults = null;
+  let _cachedPagination = null;
+  let _cachedSearchTime = null;
 
   function attachEventListeners() {
     const resetButton = document.getElementById('reset-filters-btn');
@@ -112,10 +115,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.sort-btn').forEach((button) => {
       button.addEventListener('click', () => {
+        var newSort = button.dataset.sort || 'relevance';
+        if (newSort === currentSort) return;
         document.querySelectorAll('.sort-btn').forEach((btn) => btn.classList.remove('active'));
         button.classList.add('active');
-        currentSort = button.dataset.sort || 'relevance';
-        if (currentQuery) {
+        currentSort = newSort;
+
+        // 已有缓存结果则客户端排序，无需 API 请求
+        if (_cachedResults && _cachedResults.length > 0 && pageHasOnlySortChange(newSort)) {
+          sortAndDisplayResults(_cachedResults, currentSort);
+          return;
+        }
+
+        if (currentQuery || hasActiveFilters()) {
           performSearch(1);
         }
       });
@@ -224,6 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
+    _cachedResults = null;
+    _cachedPagination = null;
+    _cachedSearchTime = null;
+
     if (resultsSection) {
       resultsSection.style.display = 'none';
     }
@@ -244,6 +260,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearMax = document.getElementById('year-max')?.value || '';
     const ratingMin = document.getElementById('rating-min')?.value || '';
     return { genre, yearMin, yearMax, ratingMin, page };
+  }
+
+  function hasActiveFilters() {
+    var genre = document.getElementById('genre-filter')?.value || '';
+    var yearMin = document.getElementById('year-min')?.value || '';
+    var yearMax = document.getElementById('year-max')?.value || '';
+    var ratingMin = document.getElementById('rating-min')?.value || '';
+    return !!(genre || yearMin || yearMax || ratingMin);
+  }
+
+  function pageHasOnlySortChange(newSort) {
+    // 只有排序参数变化，其他筛选条件未变
+    return currentPage === 1;
+  }
+
+  function sortAndDisplayResults(results, sortBy) {
+    var sorted = results.slice();
+    switch (sortBy) {
+      case 'year':
+        sorted.sort(function(a, b) { return (b.year || 0) - (a.year || 0); });
+        break;
+      case 'rating':
+        sorted.sort(function(a, b) { return (b.avg_rating || 0) - (a.avg_rating || 0); });
+        break;
+      case 'title':
+        sorted.sort(function(a, b) { return (a.title || '').localeCompare(b.title || ''); });
+        break;
+      default:
+        break;
+    }
+    displayResults({
+      results: sorted,
+      pagination: _cachedPagination,
+      search_time: '<1ms (客户端)'
+    });
   }
 
   async function performSearch(page = 1) {
@@ -306,6 +357,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const items = Array.isArray(data.results) ? data.results : [];
+
+    // 缓存结果，用于客户端排序
+    _cachedResults = items;
+    _cachedPagination = data.pagination || {};
+    _cachedSearchTime = data.search_time || '--';
     if (!items.length) {
       if (moviesGrid) {
         renderStateMessage(moviesGrid, 'info', '没有找到结果', '请尝试更换关键词或调整筛选条件。');

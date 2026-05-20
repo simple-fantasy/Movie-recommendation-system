@@ -30,6 +30,9 @@ env/
 instance/
 .webassets-cache
 
+# FileSystemCache
+data/cache/
+
 # Environment variables
 .env
 .env.local

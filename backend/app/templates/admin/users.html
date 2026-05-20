@@ -68,12 +68,12 @@
                         </div>
                     </div>
                 </td>
-                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ user.created_at|safe_date('%Y-%m-%d %H:%M') }}</td>
                 <td>
                     <div class="small">
                         <div>登录次数: {{ user.login_count }}</div>
                         {% if user.last_login %}
-                            <div class="text-muted">最后登录: {{ user.last_login.strftime('%m-%d %H:%M') }}</div>
+                            <div class="text-muted">最后登录: {{ user.last_login|safe_date('%m-%d %H:%M') }}</div>
                         {% else %}
                             <div class="text-muted">从未登录</div>
                         {% endif %}

@@ -95,7 +95,7 @@
                         <span class="badge bg-secondary">已拒绝</span>
                     {% endif %}
                 </td>
-                <td>{{ review.created_at.strftime('%m-%d %H:%M') }}</td>
+                <td>{{ review.created_at|safe_date('%m-%d %H:%M') }}</td>
                 <td>
                     <div class="btn-group">
                         {% if review.status != 'approved' %}

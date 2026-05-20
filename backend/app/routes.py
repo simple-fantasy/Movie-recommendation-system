@@ -311,6 +311,7 @@ def my_ratings():
                 "title": m.title,
                 "year": m.year,
                 "genres": (m.genres or ""),
+                "poster_url": m.poster_url,
                 "rating": float(r.rating),
                 "timestamp": r.timestamp.isoformat() if r.timestamp else None,
             }
@@ -800,7 +801,7 @@ def explain_recommendation(movie_id: int):
 
 
 @bp.get("/api/stats/ratings")
-@cache.cached(timeout=60)  # 缓存1分钟
+@cache.cached(timeout=600)  # 缓存10分钟（FileSystemCache 跨重启持久化）
 def stats_ratings():
     rows = db.session.query(Rating.rating, db.func.count(Rating.id)).group_by(Rating.rating).order_by(Rating.rating.asc()).all()
     return jsonify(
@@ -812,7 +813,7 @@ def stats_ratings():
 
 
 @bp.get("/api/stats/genres")
-@cache.cached(timeout=60)  # 缓存1分钟
+@cache.cached(timeout=600)  # 缓存10分钟（FileSystemCache 跨重启持久化）
 def stats_genres():
     rows = db.session.query(Movie.genres, db.func.count(Rating.id)).join(Rating, Rating.movie_id == Movie.id).group_by(Movie.genres).all()
     counts: dict[str, int] = {}
@@ -830,7 +831,7 @@ def stats_genres():
 
 
 @bp.get("/api/stats/years")
-@cache.cached(timeout=60)  # 缓存1分钟
+@cache.cached(timeout=600)  # 缓存10分钟（FileSystemCache 跨重启持久化）
 def stats_years():
     rows = (
         db.session.query(Movie.year, db.func.count(Rating.id).label("cnt"), db.func.avg(Rating.rating).label("avg"))
@@ -850,7 +851,7 @@ def stats_years():
 
 
 @bp.get("/api/stats/popular")
-@cache.cached(timeout=60, query_string=True)  # 缓存1分钟，考虑limit参数
+@cache.cached(timeout=300, query_string=True)  # 缓存5分钟，考虑limit参数
 def stats_popular():
     limit = min(int(request.args.get("limit") or 10), 50)
     rows = (
@@ -875,7 +876,7 @@ def stats_popular():
 
 
 @bp.get("/api/stats/user_activity")
-@cache.cached(timeout=60, query_string=True)  # 缓存1分钟
+@cache.cached(timeout=300, query_string=True)  # 缓存5分钟（FileSystemCache 跨重启持久化）
 def stats_user_activity():
     limit = min(int(request.args.get("limit") or 10), 50)
     rows = (
@@ -892,35 +893,46 @@ def stats_user_activity():
 @bp.get("/api/stats/movie_rating_counts")
 @cache.cached(timeout=300)  # 缓存5分钟，该统计变化较慢
 def stats_movie_rating_counts():
+    from sqlalchemy import case
+
     bins = [1, 2, 5, 10, 20, 50, 100, 200]
-    rows = (
+    subq = (
         db.session.query(Rating.movie_id, db.func.count(Rating.id).label("cnt"))
         .group_by(Rating.movie_id)
+        .subquery()
+    )
+
+    # 构建 CASE WHEN 分桶表达式，在数据库层完成分桶
+    when_clauses = []
+    for i, b in enumerate(bins):
+        lo = 1 if i == 0 else bins[i - 1] + 1
+        when_clauses.append((subq.c.cnt.between(lo, b), i))
+    when_clauses.append((subq.c.cnt > bins[-1], len(bins)))
+
+    bin_idx = case(*when_clauses, else_=len(bins))
+    raw_bins = (
+        db.session.query(bin_idx, db.func.count(subq.c.movie_id))
+        .group_by(bin_idx)
+        .order_by(bin_idx)
         .all()
     )
-    counts = [0 for _ in range(len(bins) + 1)]
-    for _mid, cnt in rows:
-        c = int(cnt)
-        placed = False
-        for i, b in enumerate(bins):
-            if c <= b:
-                counts[i] += 1
-                placed = True
-                break
-        if not placed:
-            counts[-1] += 1
+
+    bin_counts = [0] * (len(bins) + 1)
+    for b, cnt in raw_bins:
+        if b is not None and 0 <= b < len(bin_counts):
+            bin_counts[b] = int(cnt)
 
     labels = [f"1-{bins[0]}"]
     for i in range(1, len(bins)):
         labels.append(f"{bins[i-1]+1}-{bins[i]}")
     labels.append(f">{bins[-1]}")
-    return jsonify({"labels": labels, "values": counts})
+    return jsonify({"labels": labels, "values": bin_counts})
 
 
 # ==================== 统一数据看板 API ====================
 
 @bp.get("/api/dashboard/overview")
-@cache.cached(timeout=120)  # 缓存2分钟
+@cache.cached(timeout=300)  # 缓存5分钟（FileSystemCache 跨重启持久化）
 def dashboard_overview():
     """聚合所有看板数据，单次请求替代多次独立调用"""
     from pathlib import Path
@@ -1051,32 +1063,43 @@ def dashboard_overview():
     except Exception:
         result["stats"]["user_activity"] = None
 
-    # ── 电影评分次数分布 ──
+    # ── 电影评分次数分布（SQL 层分桶，避免全量读取）──
     try:
-        bins = [1, 2, 5, 10, 20, 50, 100, 200]
-        rows = (
+        from sqlalchemy import case as _case
+
+        _bins = [1, 2, 5, 10, 20, 50, 100, 200]
+        _subq = (
             db.session.query(Rating.movie_id, db.func.count(Rating.id).label("cnt"))
             .group_by(Rating.movie_id)
+            .subquery()
+        )
+
+        _when = []
+        for _i, _b in enumerate(_bins):
+            _lo = 1 if _i == 0 else _bins[_i - 1] + 1
+            _when.append((_subq.c.cnt.between(_lo, _b), _i))
+        _when.append((_subq.c.cnt > _bins[-1], len(_bins)))
+
+        _bin_idx = _case(*_when, else_=len(_bins))
+        _raw = (
+            db.session.query(_bin_idx, db.func.count(_subq.c.movie_id))
+            .group_by(_bin_idx)
+            .order_by(_bin_idx)
             .all()
         )
-        bin_counts = [0 for _ in range(len(bins) + 1)]
-        for _mid, cnt in rows:
-            c = int(cnt)
-            placed = False
-            for i, b in enumerate(bins):
-                if c <= b:
-                    bin_counts[i] += 1
-                    placed = True
-                    break
-            if not placed:
-                bin_counts[-1] += 1
-        labels = [f"1-{bins[0]}"]
-        for i in range(1, len(bins)):
-            labels.append(f"{bins[i-1]+1}-{bins[i]}")
-        labels.append(f">{bins[-1]}")
+
+        _counts = [0] * (len(_bins) + 1)
+        for _b, _cnt in _raw:
+            if _b is not None and 0 <= _b < len(_counts):
+                _counts[_b] = int(_cnt)
+
+        _labels = [f"1-{_bins[0]}"]
+        for _i in range(1, len(_bins)):
+            _labels.append(f"{_bins[_i-1]+1}-{_bins[_i]}")
+        _labels.append(f">{_bins[-1]}")
         result["stats"]["movie_rating_counts"] = {
-            "labels": labels,
-            "values": bin_counts,
+            "labels": _labels,
+            "values": _counts,
         }
     except Exception:
         result["stats"]["movie_rating_counts"] = None
@@ -2014,14 +2037,22 @@ def enhanced_overview_stats():
         # 今日评分数
         stats["ratings_today"] = Rating.query.filter(Rating.timestamp >= one_day_ago).count()
         
-        # 热门类型统计（从 ratings 聚合后回查 movie 类型）
-        genre_stats = db.session.query(
-            Movie.genres, func.count(Rating.id).label('count')
-        ).join(Rating, Rating.movie_id == Movie.id).group_by(Movie.genres).order_by(func.count(Rating.id).desc()).limit(5).all()
-
+        # 热门类型统计（从 Movie 表直接统计，避免 JOIN Rating 大表）
+        genre_rows = (
+            db.session.query(Movie.genres, func.count(Movie.id))
+            .filter(Movie.genres.isnot(None), Movie.genres != '')
+            .group_by(Movie.genres)
+            .all()
+        )
+        genre_counts: dict[str, int] = {}
+        for genres_str, cnt in genre_rows:
+            for g in str(genres_str).split("|"):
+                g = g.strip()
+                if g and g != "(no genres listed)":
+                    genre_counts[g] = genre_counts.get(g, 0) + int(cnt)
         stats["popular_genres"] = [
-            {"genre": genre or "未知", "count": int(count)}
-            for genre, count in genre_stats
+            {"genre": genre, "count": count}
+            for genre, count in sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:8]
         ]
 
         # 本月热门电影（子查询优化：先按 movie_id 聚合，再 JOIN movie 表）
@@ -2048,13 +2079,13 @@ def enhanced_overview_stats():
             for m, c in monthly
         ]
         
-        # 用户活跃度统计
-        active_users_today = User.query.join(Rating).filter(
-            Rating.timestamp >= one_day_ago
-        ).distinct().count()
-        
+        # 用户活跃度统计（避免 JOIN User 表，直接从 ratings 统计）
+        active_users_today = db.session.query(
+            func.count(func.distinct(Rating.user_id))
+        ).filter(Rating.timestamp >= one_day_ago).scalar() or 0
+
         stats["active_users_today"] = active_users_today
-        
+
         return jsonify(stats)
         
     except Exception as e:
@@ -2074,14 +2105,17 @@ def user_segment_analysis():
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         total_users = User.query.count()
 
-        # ── 活跃度分群：直接从 ratings 表按 user_id 聚合 ──
-        activity_rows = db.session.query(
+        # ── 活跃度+评分偏好分群：一次 GROUP BY 同时获取 MAX(timestamp) 和 AVG(rating) ──
+        user_rows = db.session.query(
             Rating.user_id,
             func.max(Rating.timestamp).label('last_rating'),
+            func.avg(Rating.rating).label('avg_rating')
         ).group_by(Rating.user_id).all()
 
         highly_active = moderately_active = low_active = 0
-        for _uid, last in activity_rows:
+        generous_raters = critical_raters = 0
+        for _uid, last, avg_r in user_rows:
+            # 活跃度分群
             if last:
                 if last >= seven_days_ago:
                     highly_active += 1
@@ -2089,7 +2123,16 @@ def user_segment_analysis():
                     moderately_active += 1
                 else:
                     low_active += 1
+            else:
+                low_active += 1
+            # 评分偏好分群
+            if avg_r is not None:
+                if avg_r >= 4.0:
+                    generous_raters += 1
+                elif avg_r <= 2.5:
+                    critical_raters += 1
         dormant = max(0, total_users - (highly_active + moderately_active + low_active))
+        balanced_raters = max(0, total_users - generous_raters - critical_raters)
 
         activity_segments = {
             "highly_active": highly_active,
@@ -2097,20 +2140,6 @@ def user_segment_analysis():
             "low_active": low_active,
             "dormant": dormant
         }
-
-        # ── 评分偏好分群：直接从 ratings 聚合 ──
-        rating_rows = db.session.query(
-            Rating.user_id,
-            func.avg(Rating.rating).label('avg_rating')
-        ).group_by(Rating.user_id).all()
-
-        generous_raters = critical_raters = 0
-        for _uid, avg_r in rating_rows:
-            if avg_r >= 4.0:
-                generous_raters += 1
-            elif avg_r <= 2.5:
-                critical_raters += 1
-        balanced_raters = max(0, total_users - generous_raters - critical_raters)
 
         rating_segments = {
             "generous_raters": generous_raters,
@@ -2141,33 +2170,33 @@ def activity_heatmap_data():
     """用户活跃度热力图数据"""
     try:
         from datetime import datetime, timedelta
-        from sqlalchemy import func, extract
-        
+        from sqlalchemy import func
+
         # 获取过去30天的活跃数据
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        
-        # 按小时统计活跃度
+
+        # 按小时+星期统计活跃度（func.dayofweek 返回 1-7，Python 中转为 0-6）
         hourly_activity = db.session.query(
-            extract('hour', Rating.timestamp).label('hour'),
-            extract('dow', Rating.timestamp).label('day_of_week'),
+            func.hour(Rating.timestamp).label('hour'),
+            func.dayofweek(Rating.timestamp).label('day_of_week'),
             func.count(Rating.id).label('activity_count')
         ).filter(
             Rating.timestamp >= thirty_days_ago
         ).group_by(
-            extract('hour', Rating.timestamp),
-            extract('dow', Rating.timestamp)
+            func.hour(Rating.timestamp),
+            func.dayofweek(Rating.timestamp)
         ).all()
         
-        # 构建热力图数据矩阵 (7天 x 24小时)
+        # 构建热力图数据矩阵 (7天 x 24小时) — 使用字典查找替代 O(n³) 循环
+        # dayofweek: MySQL 返回 1-7 (1=周日)，转为 0-6 (0=周日)
+        lookup = {}
+        for h, d, activity_count in hourly_activity:
+            lookup[(int(h), int(d) - 1)] = int(activity_count)
+
         heatmap_data = []
         for hour in range(24):
-            for day in range(7):  # 0=周日, 6=周六
-                count = 0
-                for h, d, activity_count in hourly_activity:
-                    if int(h) == hour and int(d) == day:
-                        count = int(activity_count)
-                        break
-                
+            for day in range(7):
+                count = lookup.get((hour, day), 0)
                 heatmap_data.append([hour, day, count])
         
         return jsonify({
@@ -2236,7 +2265,7 @@ def genre_trends_analysis():
 
 
 @bp.get("/api/enhanced-stats/system-health")
-@cache.cached(timeout=60)
+@cache.cached(timeout=300)
 def system_health_metrics():
     """系统健康指标"""
     try:
@@ -2258,13 +2287,17 @@ def system_health_metrics():
             health_metrics["database_status"] = "error"
             health_metrics["database_error"] = str(e)
         
-        # 数据完整性检查（用 DISTINCT 聚合替代 OUTER JOIN，大幅提速）
-        movies_with_ratings = db.session.query(func.count(func.distinct(Rating.movie_id))).scalar() or 0
-        total_m = Movie.query.count()
+        # 数据完整性检查（合并两次 COUNT(DISTINCT) 为一次查询）
+        distinct_counts = db.session.query(
+            func.count(func.distinct(Rating.movie_id)),
+            func.count(func.distinct(Rating.user_id)),
+        ).first()
+        movies_with_r = distinct_counts[0] or 0
+        users_with_r = distinct_counts[1] or 0
         health_metrics["data_integrity"] = {
-            "movies_without_ratings": max(0, total_m - movies_with_ratings),
-            "ratings_without_movies": 0,  # FK约束保证了完整性
-            "users_without_ratings": max(0, User.query.count() - (db.session.query(func.count(func.distinct(Rating.user_id))).scalar() or 0)),
+            "movies_without_ratings": max(0, Movie.query.count() - movies_with_r),
+            "ratings_without_movies": 0,
+            "users_without_ratings": max(0, User.query.count() - users_with_r),
         }
 
         # 系统负载指标（简化版）
@@ -2293,7 +2326,7 @@ def system_health_metrics():
 # ==================== 统一增强数据看板 API ====================
 
 @bp.get("/api/dashboard/enhanced")
-@cache.cached(timeout=120)
+@cache.cached(timeout=300)
 def dashboard_enhanced():
     """聚合增强看板全部数据，单次请求替代5次独立调用"""
     from datetime import datetime, timedelta
@@ -2318,22 +2351,27 @@ def dashboard_enhanced():
             "total_ratings": Rating.query.count(),
             "users_this_week": User.query.filter(User.created_at >= one_week_ago).count(),
             "ratings_today": Rating.query.filter(Rating.timestamp >= one_day_ago).count(),
-            "active_users_today": User.query.join(Rating).filter(
-                Rating.timestamp >= one_day_ago
-            ).distinct().count(),
+            "active_users_today": db.session.query(
+                func.count(func.distinct(Rating.user_id))
+            ).filter(Rating.timestamp >= one_day_ago).scalar() or 0,
         }
 
-        # 热门类型
-        genre_rows = (
-            db.session.query(Movie.genres, func.count(Rating.id).label("count"))
-            .join(Rating, Rating.movie_id == Movie.id)
+        # 热门类型（从 Movie 表直接统计，避免 JOIN Rating 大表）
+        _genre_rows = (
+            db.session.query(Movie.genres, func.count(Movie.id))
+            .filter(Movie.genres.isnot(None), Movie.genres != '')
             .group_by(Movie.genres)
-            .order_by(func.count(Rating.id).desc())
-            .limit(8)
             .all()
         )
+        _genre_counts: dict[str, int] = {}
+        for _gs, _cnt in _genre_rows:
+            for _g in str(_gs).split("|"):
+                _g = _g.strip()
+                if _g and _g != "(no genres listed)":
+                    _genre_counts[_g] = _genre_counts.get(_g, 0) + int(_cnt)
         stats["popular_genres"] = [
-            {"genre": g or "未知", "count": int(c)} for g, c in genre_rows
+            {"genre": _g, "count": _c}
+            for _g, _c in sorted(_genre_counts.items(), key=lambda x: x[1], reverse=True)[:8]
         ]
 
         # 本月热门电影（子查询优化）
@@ -2368,28 +2406,28 @@ def dashboard_enhanced():
         thirty_d_ago = datetime.utcnow() - timedelta(days=30)
         total_u = User.query.count()
 
-        # 活跃度：按 user_id 聚合 ratings
-        act_rows = (
-            db.session.query(Rating.user_id, func.max(Rating.timestamp).label("last"))
+        # 活跃度+评分偏好：合并为一次 GROUP BY，避免重复扫描 Rating 表
+        user_rows = (
+            db.session.query(
+                Rating.user_id,
+                func.max(Rating.timestamp).label("last"),
+                func.avg(Rating.rating).label("avg_r"),
+            )
             .group_by(Rating.user_id).all()
         )
         highly = moderately = low = 0
-        for _uid, last in act_rows:
+        generous = critical = 0
+        for _uid, last, avg_r in user_rows:
             if last:
                 if last >= seven_d_ago: highly += 1
                 elif last >= thirty_d_ago: moderately += 1
                 else: low += 1
+            else:
+                low += 1
+            if avg_r is not None:
+                if avg_r >= 4.0: generous += 1
+                elif avg_r <= 2.5: critical += 1
         dormant = max(0, total_u - highly - moderately - low)
-
-        # 评分偏好：按 user_id 聚合
-        rate_rows = (
-            db.session.query(Rating.user_id, func.avg(Rating.rating).label("avg_r"))
-            .group_by(Rating.user_id).all()
-        )
-        generous = critical = 0
-        for _uid, avg_r in rate_rows:
-            if avg_r >= 4.0: generous += 1
-            elif avg_r <= 2.5: critical += 1
         balanced = max(0, total_u - generous - critical)
 
         activity_segments = {"highly_active": highly, "moderately_active": moderately, "low_active": low, "dormant": dormant}
@@ -2413,12 +2451,12 @@ def dashboard_enhanced():
         heat_start = datetime.utcnow() - timedelta(days=30)
         raw = (
             db.session.query(
-                func.extract("hour", Rating.timestamp).label("h"),
+                func.hour(Rating.timestamp).label("h"),
                 func.dayofweek(Rating.timestamp).label("d"),
                 func.count(Rating.id).label("cnt"),
             )
             .filter(Rating.timestamp >= heat_start)
-            .group_by(func.extract("hour", Rating.timestamp), func.dayofweek(Rating.timestamp))
+            .group_by(func.hour(Rating.timestamp), func.dayofweek(Rating.timestamp))
             .all()
         )
         result["activity_heatmap"] = {
@@ -2492,19 +2530,15 @@ def advanced_search():
         if year_max:
             movie_query = movie_query.filter(Movie.year <= year_max)
         
-        # 评分筛选（需要join Rating表）
+        # 评分筛选（使用预计算的 avg_rating 列，避免 JOIN Rating 表）
         if rating_min is not None:
-            movie_query = movie_query.join(Rating).group_by(Movie.id).having(
-                func.avg(Rating.rating) >= rating_min
-            )
+            movie_query = movie_query.filter(Movie.avg_rating >= rating_min)
         
         # 排序
         if sort_by == 'year':
             movie_query = movie_query.order_by(Movie.year.desc())
         elif sort_by == 'rating':
-            movie_query = movie_query.outerjoin(Rating).group_by(Movie.id).order_by(
-                func.avg(Rating.rating).desc().nulls_last()
-            )
+            movie_query = movie_query.order_by(Movie.avg_rating.desc().nulls_last())
         elif sort_by == 'title':
             movie_query = movie_query.order_by(Movie.title.asc())
         else:  # relevance (默认)
@@ -2520,22 +2554,8 @@ def advanced_search():
         # 分页
         pagination = movie_query.paginate(page=page, per_page=per_page, error_out=False)
         
-        # 获取每部电影的平均评分
-        movies_with_ratings = []
-        for movie in pagination.items:
-            avg_rating = db.session.query(func.avg(Rating.rating)).filter(
-                Rating.movie_id == movie.id
-            ).scalar() or 0.0
-            
-            rating_count = db.session.query(func.count(Rating.id)).filter(
-                Rating.movie_id == movie.id
-            ).scalar() or 0
-            
-            movies_with_ratings.append({
-                **movie.to_dict(),
-                'avg_rating': round(avg_rating, 1),
-                'rating_count': rating_count
-            })
+        # 直接使用 Movie 模型预计算的 avg_rating 和 rating_count 字段
+        movies_with_ratings = [movie.to_dict() for movie in pagination.items]
         
         # 获取搜索建议
         suggestions = get_search_suggestions(query) if query else []

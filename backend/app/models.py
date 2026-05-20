@@ -75,11 +75,11 @@ class Movie(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(255), nullable=False, index=True)
     year = db.Column(db.Integer, nullable=True, index=True)
-    genres = db.Column(db.String(255), nullable=True)
+    genres = db.Column(db.String(255), nullable=True, index=True)
     
     # 新增元数据字段
     original_title = db.Column(db.String(255))  # 原始标题
-    director = db.Column(db.String(255))       # 导演
+    director = db.Column(db.String(255), index=True)  # 导演
     actors = db.Column(db.Text)                 # 演员（JSON格式存储）
     description = db.Column(db.Text)          # 简介
     runtime = db.Column(db.Integer)             # 时长（分钟）
@@ -93,15 +93,15 @@ class Movie(db.Model):
     country = db.Column(db.String(100))         # 制片国家
     
     # 管理字段
-    status = db.Column(db.Enum('active', 'inactive', 'pending'), default='active')
+    status = db.Column(db.Enum('active', 'inactive', 'pending'), default='active', index=True)
     is_featured = db.Column(db.Boolean, default=False)
     view_count = db.Column(db.Integer, default=0)
     rating_count = db.Column(db.Integer, default=0)
-    avg_rating = db.Column(db.Float, default=0.0)
+    avg_rating = db.Column(db.Float, default=0.0, index=True)
     
     # 时间戳
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
 
     ratings = db.relationship("Rating", back_populates="movie", cascade="all, delete-orphan")
     collections = db.relationship("UserCollection", back_populates="movie", cascade="all, delete-orphan")

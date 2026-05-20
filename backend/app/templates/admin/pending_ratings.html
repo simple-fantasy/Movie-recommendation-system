@@ -61,7 +61,7 @@
                         <span class="badge bg-danger">低分</span>
                     {% endif %}
                 </td>
-                <td>{{ rating.timestamp.strftime('%m-%d %H:%M') if rating.timestamp else 'N/A' }}</td>
+                <td>{{ rating.timestamp|safe_date('%m-%d %H:%M') }}</td>
                 <td>
                     <span class="badge bg-secondary">正常</span>
                 </td>

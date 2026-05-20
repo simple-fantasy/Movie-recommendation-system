@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     ncf_epochs: int = Field(default=20, env="NCF_EPOCHS")
     
     # 缓存配置
-    cache_type: str = Field(default="SimpleCache", env="CACHE_TYPE")
+    cache_type: str = Field(default="FileSystemCache", env="CACHE_TYPE")
     cache_default_timeout: int = Field(default=300, env="CACHE_DEFAULT_TIMEOUT")
+    cache_dir: str = Field(default="data/cache", env="CACHE_DIR")
     
     # 限流配置
     rate_limit_enabled: bool = Field(default=False, env="RATE_LIMIT_ENABLED")
