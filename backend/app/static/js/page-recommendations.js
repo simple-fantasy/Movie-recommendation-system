@@ -162,6 +162,8 @@
         retrySeconds: 0,
 
         currentStrategy: 'popular',
+        actualStrategy: null,
+        fallbackReason: null,
         strategies: [
           { key: 'popular', label: '热门高分', icon: 'ph-fire' },
           { key: 'itemcf', label: 'ItemCF', icon: 'ph-target' },
@@ -260,23 +262,28 @@
 
         try {
           let data;
-          if (this.currentStrategy === 'popular') {
-            // Use recommendation engine for fast loading (same as other strategies)
-            data = await api('/api/recommendations?n=50&strategy=itemcf');
-          } else {
-            // Force login for personalized strategies
-            if (!this.user) {
-              showToast('请先登录以使用个性化推荐', 'error');
-              this.currentStrategy = 'popular';
-              data = await api('/api/recommendations?n=50&strategy=itemcf');
-              return;
-            }
-            data = await api(
-              '/api/recommendations?n=50&strategy=' + this.currentStrategy
-            );
+          if (!this.user && this.currentStrategy !== 'popular') {
+            showToast('请先登录以使用个性化推荐', 'error');
+            this.currentStrategy = 'popular';
           }
+          // 所有策略统一走推荐端点，保证海报加载策略一致
+          data = await api(
+            '/api/recommendations?n=50&strategy=' + this.currentStrategy
+          );
 
-          let list = Array.isArray(data) ? data : data.recommendations || [];
+          let list = Array.isArray(data) ? data : (data.recommendations || []);
+          this.actualStrategy = (data.meta && data.meta.actual_strategy) || this.currentStrategy;
+          this.fallbackReason = (data.meta && data.meta.fallback_reason) || null;
+          if (this.fallbackReason) {
+            const messages = {
+              'anonymous_user': '请登录获取个性化推荐，当前显示为热门高分电影',
+              'cold_start': '您还没有评分记录，评分后即可获得个性化推荐',
+              'user_not_in_ncf_training_set': 'NCF 模型暂不适用于您的账户，已自动切换为协同过滤推荐',
+              'ncf_not_available': 'NCF 模型暂不可用，已自动切换为协同过滤推荐',
+              'empty_result': '推荐结果不足，已用热门电影补足'
+            };
+            showToast(messages[this.fallbackReason] || '推荐策略已自动调整', 'info');
+          }
           this.allMovies = list.map(normalizeMovie);
           this.displayCount = 24;
           this.filterGenres = this.availableGenres;

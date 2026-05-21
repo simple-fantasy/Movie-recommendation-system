@@ -19,6 +19,18 @@ from backend.app.services import ProfileService
 bp = Blueprint("main", __name__)
 
 
+def _safe_isoformat(value, default=None):
+    """安全将日期转为 ISO 字符串，兼容 datetime 对象和无效日期字符串"""
+    if value is None:
+        return default
+    if isinstance(value, datetime):
+        return value.isoformat()
+    s = str(value)
+    if s.startswith('0000') or s.startswith('00'):
+        return default
+    return s[:19] if len(s) >= 10 else s
+
+
 @bp.get("/")
 def index():
     return render_template("portal.html")
@@ -387,7 +399,7 @@ def me():
         "is_admin": current_user.is_admin,
         "is_active": current_user.is_active,
         "login_count": current_user.login_count,
-        "last_login": current_user.last_login.isoformat() if current_user.last_login else None,
+        "last_login": _safe_isoformat(current_user.last_login),
         "security_question_set": bool(current_user.security_question and current_user.security_answer_hash)
     })
 
@@ -404,20 +416,38 @@ def my_ratings():
         .limit(limit)
         .all()
     )
-    return jsonify(
-        [
-            {
-                "movie_id": m.id,
-                "title": m.title,
-                "year": m.year,
-                "genres": (m.genres or ""),
-                "poster_url": m.poster_url,
-                "rating": float(r.rating),
-                "timestamp": r.timestamp.isoformat() if r.timestamp else None,
-            }
-            for r, m in rows
-        ]
-    )
+    ratings_list = [
+        {
+            "movie_id": m.id,
+            "title": m.title,
+            "year": m.year,
+            "genres": (m.genres or ""),
+            "poster_url": m.poster_url,
+            "rating": float(r.rating),
+            "timestamp": _safe_isoformat(r.timestamp),
+        }
+        for r, m in rows
+    ]
+
+    # 计算统计数据
+    rating_values = [float(r.rating) for r, _ in rows]
+    stats = {}
+    if rating_values:
+        stats = {
+            "count": len(rating_values),
+            "avg": round(sum(rating_values) / len(rating_values), 1),
+            "max": round(max(rating_values), 1),
+            "min": round(min(rating_values), 1),
+            "histogram": [
+                sum(1 for v in rating_values if 0.5 + i * 0.5 <= v < 1.0 + i * 0.5)
+                for i in range(10)
+            ],
+        }
+
+    return jsonify({
+        "ratings": ratings_list,
+        "stats": stats,
+    })
 
 
 @bp.get("/api/movies")
@@ -451,23 +481,26 @@ def list_movies():
 
 
 @bp.get("/api/movies/popular")
-@cache.cached(timeout=300, query_string=True)  # 缓存5分钟，考虑查询参数
+@cache.cached(timeout=600, query_string=True)
 def popular_movies():
+    """热门高分电影 — 使用预计算的 avg_rating/rating_count 列，避免 JOIN Rating 表"""
     limit = min(int(request.args.get("limit") or 20), 100)
     min_count = int(request.args.get("min_count") or 0)
-    rows = (
-        db.session.query(
-            Movie,
-            db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"),
-            db.func.count(Rating.id).label("rating_count"),
-        )
-        .outerjoin(Rating, Rating.movie_id == Movie.id)
-        .filter(Movie.poster_url.isnot(None), Movie.poster_url != "", db.not_(Movie.poster_url.contains("placeholder")))
-        .group_by(Movie.id)
+
+    query = Movie.query.filter(
+        Movie.poster_url.isnot(None),
+        Movie.poster_url != "",
+        db.not_(Movie.poster_url.contains("placeholder")),
     )
     if min_count > 0:
-        rows = rows.having(db.func.count(Rating.id) >= min_count)
-    rows = rows.order_by(db.desc("avg_rating"), db.desc("rating_count")).limit(limit).all()
+        query = query.filter(Movie.rating_count >= min_count)
+
+    movies = (
+        query
+        .order_by(Movie.avg_rating.desc(), Movie.rating_count.desc())
+        .limit(limit)
+        .all()
+    )
     return jsonify(
         [
             {
@@ -475,13 +508,13 @@ def popular_movies():
                 "title": m.title,
                 "year": m.year,
                 "genres": (m.genres or ""),
-                "avg_rating": float(avg),
-                "rating_count": int(cnt),
+                "avg_rating": float(m.avg_rating or 0),
+                "rating_count": int(m.rating_count or 0),
                 "poster": m.poster_url,
                 "backdrop": m.backdrop_url,
                 "overview": m.description,
             }
-            for (m, avg, cnt) in rows
+            for m in movies
         ]
     )
 
@@ -567,6 +600,56 @@ def similar_movies(movie_id: int):
     return jsonify({"movie_id": movie.id, "title": movie.title, "similar": result})
 
 
+def _update_movie_stats(movie_id: int):
+    """更新电影的 avg_rating 和 rating_count 预计算列"""
+    try:
+        from sqlalchemy import func
+        stats = (
+            db.session.query(
+                func.count(Rating.id),
+                func.coalesce(func.avg(Rating.rating), 0),
+            )
+            .filter(Rating.movie_id == movie_id)
+            .first()
+        )
+        if stats:
+            cnt, avg_r = stats
+            db.session.query(Movie).filter(Movie.id == movie_id).update(
+                {"rating_count": cnt, "avg_rating": float(avg_r)},
+                synchronize_session=False,
+            )
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
+
+def _ensure_movie_stats_populated():
+    """启动时检查：如果所有电影的 rating_count 都是 0，则从 ratings 表批量填充"""
+    try:
+        from sqlalchemy import func, text
+        has_stats = db.session.query(Movie.rating_count).filter(Movie.rating_count > 0).first()
+        if has_stats:
+            return  # 已有统计数据，跳过
+
+        print("[startup] 首次填充电影统计数据 (avg_rating / rating_count)...")
+        db.session.execute(
+            text("""
+                UPDATE movies m
+                LEFT JOIN (
+                    SELECT movie_id, COUNT(*) as cnt, AVG(rating) as avg_r
+                    FROM ratings GROUP BY movie_id
+                ) r ON m.id = r.movie_id
+                SET m.rating_count = COALESCE(r.cnt, 0),
+                    m.avg_rating = COALESCE(r.avg_r, 0)
+            """)
+        )
+        db.session.commit()
+        print("[startup] 电影统计数据填充完成")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[startup] 电影统计数据填充失败（非致命）: {e}")
+
+
 @bp.post("/api/ratings")
 @login_required
 def rate_movie():
@@ -585,7 +668,7 @@ def rate_movie():
         rating_value = float(rating_value)
     except (ValueError, TypeError):
         return jsonify({"error": "评分必须是数字"}), 400
-    rating_value = round(rating_value * 2) / 2  # 四舍五入到 0.5
+    rating_value = round(rating_value * 2) / 2
     if not (0.5 <= rating_value <= 5.0):
         return jsonify({"error": "评分必须在 0.5-5.0 之间"}), 400
 
@@ -598,6 +681,7 @@ def rate_movie():
         existing.timestamp = datetime.utcnow()
 
     db.session.commit()
+    _update_movie_stats(movie.id)
     return jsonify({"ok": True})
 
 
@@ -711,9 +795,11 @@ def _format_recommendations(
 
 
 def _get_popular_fallback(top_n: int) -> list[dict]:
-    """Return popular movies as fallback for cold users. Only movies with posters and >=50 ratings.
+    """返回热门电影作为冷启动回退，仅展示有海报的电影。
 
-    Cached for 120s to reduce DB load from anonymous/cold-start traffic.
+    优化：使用两步查询，先按"评分数量"找到热门候选（只走 rating 表索引），
+    再按 ID 查电影详情（主键查询），避免 Movie × Rating 全表 JOIN。
+    缓存 300s 减轻 DB 负载。
     """
     cache_key = f"_popular_fallback_{top_n}"
     cached = cache.get(cache_key)
@@ -722,27 +808,33 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
 
     result = []
     for min_ratings in (50, 10, 1, 0):
-        query = (
+        # Step 1: 从 ratings 表找热门电影 ID（只查索引，不 JOIN movies）
+        subq = (
             db.session.query(
-                Movie,
-                db.func.coalesce(db.func.avg(Rating.rating), 0).label("avg_rating"),
+                Rating.movie_id,
                 db.func.count(Rating.id).label("cnt"),
+                db.func.avg(Rating.rating).label("avg_r"),
             )
-            .outerjoin(Rating, Rating.movie_id == Movie.id)
+            .group_by(Rating.movie_id)
+        )
+        if min_ratings > 0:
+            subq = subq.having(db.func.count(Rating.id) >= min_ratings)
+        subq = subq.order_by(db.desc("cnt")).limit(300).subquery()
+
+        # Step 2: 用候选 ID 查电影详情（主键查询，极快）
+        movies = (
+            Movie.query
+            .join(subq, Movie.id == subq.c.movie_id)
             .filter(
                 Movie.poster_url.isnot(None),
                 Movie.poster_url != "",
                 db.not_(Movie.poster_url.contains("placeholder")),
             )
-            .group_by(Movie.id)
-        )
-        if min_ratings > 0:
-            query = query.having(db.func.count(Rating.id) >= min_ratings)
-        movies = (
-            query.order_by(db.desc("avg_rating"), db.desc("cnt"))
+            .order_by(db.desc(subq.c.avg_r), db.desc(subq.c.cnt))
             .limit(top_n)
             .all()
         )
+
         if movies:
             result = [
                 {
@@ -750,8 +842,8 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
                     "title": m.title,
                     "year": m.year,
                     "genres": m.genres,
-                    "avg_rating": float(avg),
-                    "rating_count": int(cnt),
+                    "avg_rating": float(m.avg_rating or 0),
+                    "rating_count": int(m.rating_count or 0),
                     "score": None,
                     "poster": m.poster_url,
                     "backdrop": m.backdrop_url,
@@ -759,12 +851,27 @@ def _get_popular_fallback(top_n: int) -> list[dict]:
                     "reason": "popular",
                     "because": None,
                 }
-                for (m, avg, cnt) in movies
+                for m in movies
             ]
             break
 
-    cache.set(cache_key, result, timeout=120)
+    cache.set(cache_key, result, timeout=300)
     return result
+
+
+def _make_rec_response(result, strategy, fallback_reason=None):
+    """构建统一的推荐响应，结果为空时回退到热门推荐"""
+    if not result:
+        result = _get_popular_fallback(12)
+        fallback_reason = 'empty_result'
+        strategy = 'popular_fallback'
+    return jsonify({
+        "recommendations": result,
+        "meta": {
+            "actual_strategy": strategy,
+            "fallback_reason": fallback_reason
+        }
+    })
 
 
 @bp.get("/api/recommendations")
@@ -775,7 +882,7 @@ def recommend():
 
     # Anonymous users: return popular movies as fallback
     if not current_user.is_authenticated:
-        return jsonify(_get_popular_fallback(top_n))
+        return _make_rec_response(_get_popular_fallback(top_n), "popular_fallback", "anonymous_user")
 
     user_ratings = (
         Rating.query.filter_by(user_id=current_user.id)
@@ -786,30 +893,32 @@ def recommend():
 
     # Cold user: return popular
     if not user_ratings:
-        return jsonify(_get_popular_fallback(top_n))
+        return _make_rec_response(_get_popular_fallback(top_n), "popular_fallback", "cold_start")
 
     rated_movie_ids = {r.movie_id for r in user_ratings}
+
+    # Popular/hot strategy — explicitly use the popular fallback pipeline
+    if strategy == "popular":
+        return _make_rec_response(_get_popular_fallback(top_n), "popular")
 
     # ItemCF strategy (original behavior)
     if strategy == "itemcf":
         ranked, contributions = _itemcf_recall(current_user.id, user_ratings, top_n, rated_movie_ids)
         result = _format_recommendations(ranked, contributions, user_ratings, "similarity")
-        return jsonify(result)
+        return _make_rec_response(result, "itemcf")
 
     # NCF-only strategy (require trained model)
     if strategy == "ncf":
-        # 检查模型加载状态
         if ncf_engine.is_loading():
             return jsonify({
                 "error": "NCF模型正在加载中，请稍后再试",
                 "code": "MODEL_LOADING",
                 "retry_after": 5
             }), 503
-        
+
         if not ncf_engine.is_ready():
-            # 尝试加载
             ncf_engine.load()
-        
+
         if not ncf_engine.is_ready():
             return jsonify({
                 "error": "NCF模型不可用，请先运行训练脚本: python -m backend.scripts.train_ncf",
@@ -818,12 +927,11 @@ def recommend():
 
         # Check if user is in NCF training set
         if current_user.id not in ncf_engine.user2idx:
-            # Cold user for NCF: fallback to ItemCF
             ranked, contributions = _itemcf_recall(current_user.id, user_ratings, top_n, rated_movie_ids)
             result = _format_recommendations(ranked, contributions, user_ratings, "similarity")
-            return jsonify(result)
+            return _make_rec_response(result, "itemcf_fallback", "user_not_in_ncf_training_set")
 
-        # Use popular unrated movies as NCF candidates (deterministic + reasonable quality)
+        # Use popular unrated movies as NCF candidates
         popular_unrated = (
             db.session.query(Rating.movie_id, db.func.count(Rating.id).label("cnt"))
             .filter(~Rating.movie_id.in_(rated_movie_ids))
@@ -835,21 +943,19 @@ def recommend():
         candidate_ids = [int(mid) for mid, _ in popular_unrated]
 
         ncf_ranked = _ncf_rank(current_user.id, candidate_ids, top_k=top_n)
-        # Build empty contributions for NCF-only (no ItemCF explanation)
         contributions: dict[int, dict[int, float]] = {mid: {} for mid, _ in ncf_ranked}
         result = _format_recommendations(ncf_ranked, contributions, user_ratings, "ncf")
-        return jsonify(result)
+        return _make_rec_response(result, "ncf")
 
     # Hybrid strategy: ItemCF recall + NCF rerank
     if strategy == "hybrid":
-        # 检查模型加载状态
         if ncf_engine.is_loading():
             return jsonify({
                 "error": "NCF模型正在加载中，请稍后再试",
                 "code": "MODEL_LOADING",
                 "retry_after": 5
             }), 503
-        
+
         if not ncf_engine.is_ready():
             ncf_engine.load()
 
@@ -857,27 +963,25 @@ def recommend():
         itemcf_ranked, contributions = _itemcf_recall(current_user.id, user_ratings, recall_k, rated_movie_ids)
 
         if not itemcf_ranked:
-            return jsonify([])
+            return _make_rec_response([], "hybrid", "empty_result")
 
         # Step 2: NCF rerank if model available and user in training set
         if ncf_engine.is_ready() and current_user.id in ncf_engine.user2idx:
             candidate_ids = [mid for mid, _ in itemcf_ranked]
             ncf_ranked = _ncf_rank(current_user.id, candidate_ids, top_k=top_n)
             if ncf_ranked:
-                # Merge contributions: keep ItemCF contributions for final items
                 ncf_contributions = {mid: contributions.get(mid, {}) for mid, _ in ncf_ranked}
                 result = _format_recommendations(ncf_ranked, ncf_contributions, user_ratings, "hybrid", reranked=True)
             else:
-                # NCF returned empty (shouldn't happen with user check, but safe fallback)
                 result = _format_recommendations(itemcf_ranked[:top_n], contributions, user_ratings, "similarity")
         else:
-            # Fallback to ItemCF if NCF not loaded or user not in training set
             result = _format_recommendations(itemcf_ranked[:top_n], contributions, user_ratings, "similarity")
+            return _make_rec_response(result, "itemcf_fallback", "ncf_not_available")
 
-        return jsonify(result)
+        return _make_rec_response(result, "hybrid")
 
     # Unknown strategy
-    return jsonify({"error": f"Unknown strategy: {strategy}. Use 'itemcf', 'ncf', or 'hybrid'."}), 400
+    return jsonify({"error": f"Unknown strategy: {strategy}. Use 'popular', 'itemcf', 'ncf', or 'hybrid'."}), 400
 
 
 @bp.get("/api/recommendations/why/<int:movie_id>")
@@ -1623,7 +1727,7 @@ def get_my_collections():
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     
-    query = UserCollection.query.filter_by(user_id=current_user.id)
+    query = UserCollection.query.options(joinedload(UserCollection.movie)).filter_by(user_id=current_user.id)
     
     if collection_type:
         query = query.filter_by(collection_type=collection_type)
@@ -1938,7 +2042,7 @@ def export_user_data():
                 'id': current_user.id,
                 'username': current_user.username,
                 'email': current_user.email,
-                'created_at': current_user.created_at.isoformat() if current_user.created_at else None,
+                'created_at': _safe_isoformat(current_user.created_at),
                 'is_active': current_user.is_active
             },
             'statistics': {
@@ -2774,19 +2878,35 @@ def search_history():
 # ==================== 导出功能辅助函数 ====================
 
 def get_user_favorite_genres(user_id):
-    """获取用户喜爱类型"""
+    """获取用户喜爱类型——从复合类型字符串中拆分出独立类型并聚合评分"""
     try:
-        from sqlalchemy import func
-        
-        genre_stats = db.session.query(
+        from collections import Counter
+
+        rows = db.session.query(
             Movie.genres,
-            func.avg(Rating.rating).label('avg_rating'),
-            func.count(Rating.id).label('count')
-        ).join(Rating).filter(Rating.user_id == user_id).group_by(Movie.genres).all()
-        
-        # 返回评分最高的前3个类型
-        sorted_genres = sorted(genre_stats, key=lambda x: x[1], reverse=True)
-        return [g[0] for g in sorted_genres[:3]]
+            db.func.avg(Rating.rating).label('avg_rating'),
+            db.func.count(Rating.id).label('count')
+        ).join(Rating).filter(
+            Rating.user_id == user_id,
+            Movie.genres.isnot(None),
+            Movie.genres != ''
+        ).group_by(Movie.genres).all()
+
+        genre_scores = Counter()
+        genre_counts = Counter()
+        for genres_str, avg_rating, count in rows:
+            for g in str(genres_str).split('|'):
+                g = g.strip()
+                if g and g != '(no genres listed)':
+                    genre_scores[g] += float(avg_rating or 0) * count
+                    genre_counts[g] += count
+
+        genre_avg = {}
+        for g in genre_scores:
+            if genre_counts[g] > 0:
+                genre_avg[g] = genre_scores[g] / genre_counts[g]
+
+        return [g for g, _ in sorted(genre_avg.items(), key=lambda x: x[1], reverse=True)[:3]]
     except Exception:
         return []
 
@@ -3011,16 +3131,26 @@ def get_user_profile():
     """获取用户画像"""
     try:
         profile = UserProfile.query.filter_by(user_id=current_user.id).first()
-        
+
         if not profile:
-            # 如果画像不存在，先计算
             profile = ProfileService.compute_user_profile(current_user.id)
-        
+
+        total_ratings = Rating.query.filter_by(user_id=current_user.id).count()
+
+        needs_more_data = (
+            not profile.preferred_genres
+            and not profile.preferred_years
+            and not profile.preferred_actors
+            and not profile.preferred_directors
+        )
+
         return jsonify({
             'profile': profile.to_dict(),
-            'message': '获取成功'
+            'total_ratings': total_ratings,
+            'needs_more_data': needs_more_data,
+            'message': '您的观影记录尚少，多评几部电影后就能看到个性化的偏好分析啦' if needs_more_data else '获取成功'
         })
-        
+
     except Exception as e:
         return jsonify({
             'error': '获取用户画像失败',

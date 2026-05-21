@@ -7,6 +7,8 @@ from datetime import datetime
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for, current_app
 from flask_login import current_user, login_required, login_user
 
+from sqlalchemy.orm import joinedload
+
 from backend.app import db, cache
 from backend.app.decorators import admin_required
 from backend.app.models import Movie, User, Review, ReviewLike, Rating
@@ -755,11 +757,10 @@ def pending_ratings():
     page = request.args.get('page', 1, type=int)
     per_page = 20
 
-    # 用 id DESC 代替 timestamp DESC（走 PRIMARY 主键索引，毫秒级）
-    # timestmp 缺少单列索引 → ORDER BY timestamp 会全表扫描 32M 行
     items = (
         Rating.query
-        .order_by(Rating.id.desc())
+        .options(joinedload(Rating.user), joinedload(Rating.movie))
+        .order_by(Rating.timestamp.desc())
         .limit(per_page)
         .offset((page - 1) * per_page)
         .all()

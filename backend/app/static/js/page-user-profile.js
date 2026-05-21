@@ -161,7 +161,14 @@ async function loadProfile() {
     const data = await api('/api/user/profile');
 
     if (data.profile) {
-      displayProfile(data.profile);
+      displayProfile(data.profile, data.total_ratings || 0, data.needs_more_data);
+      if (data.needs_more_data) {
+        const hint = document.getElementById('profile-hint');
+        if (hint) {
+          hint.textContent = data.message || '多评几部电影后就能看到个性化的偏好分析啦';
+          hint.style.display = 'block';
+        }
+      }
     }
   } catch (error) {
     console.error('加载用户画像失败:', error);
@@ -194,14 +201,14 @@ async function loadProfile() {
   }
 }
 
-function displayProfile(profile) {
+function displayProfile(profile, totalRatings, needsMoreData) {
   const avgRating = document.getElementById('avg-rating');
   const totalMovies = document.getElementById('total-movies');
   const watchTime = document.getElementById('watch-time');
   const diversity = document.getElementById('diversity');
 
   if (avgRating) avgRating.textContent = profile.avg_rating_level?.toFixed(1) || '-';
-  if (totalMovies) totalMovies.textContent = Object.keys(profile.preferred_genres || {}).length;
+  if (totalMovies) totalMovies.textContent = totalRatings || 0;
   if (watchTime) watchTime.textContent = Math.round((profile.total_watch_time || 0) / 60);
   if (diversity) diversity.textContent = profile.genre_diversity?.toFixed(2) || '-';
 

@@ -124,6 +124,13 @@ def create_app() -> Flask:
                         app.logger.warning(f"Background poster enrichment failed: {e}")
             threading.Thread(target=_enrich_posters, daemon=True).start()
 
+        # 首次启动时填充电影统计数据（avg_rating / rating_count）
+        try:
+            from backend.app.routes import _ensure_movie_stats_populated
+            _ensure_movie_stats_populated()
+        except Exception as e:
+            app.logger.warning(f"Movie stats population failed: {e}")
+
     # 启动时异步预加载NCF模型（Flask 3.0兼容写法）
     _ncf_preloaded = False
 

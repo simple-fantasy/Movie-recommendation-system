@@ -116,8 +116,8 @@ class ProfileService:
         max_score = max(genre_scores.values())
         normalized = {k: round(v / max_score, 3) for k, v in genre_scores.items()}
         
-        # 只保留分数大于0.3的类型
-        filtered = {k: v for k, v in normalized.items() if v > 0.3}
+        # 只保留分数大于0.1的类型（降低阈值让新用户也能看到初步偏好）
+        filtered = {k: v for k, v in normalized.items() if v > 0.1}
         
         return dict(sorted(filtered.items(), key=lambda x: x[1], reverse=True))
     
