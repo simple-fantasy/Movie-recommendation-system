@@ -165,8 +165,7 @@ def recommendations_page():
 
 @bp.get("/app")
 def web_app():
-    """Redirect to portal (legacy SPA route preserved for existing nav links)"""
-    return redirect(url_for('main.index'))
+    return render_template("app.html")
 
 
 @bp.get("/movie/<int:movie_id>")
