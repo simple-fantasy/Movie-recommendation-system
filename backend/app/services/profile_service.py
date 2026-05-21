@@ -7,6 +7,7 @@ from collections import Counter, defaultdict
 from typing import Dict, List, Tuple
 
 from sqlalchemy.orm import selectinload
+from sqlalchemy.exc import IntegrityError
 
 from backend.app import db
 from backend.app.models import Rating, UserCollection, Review, Movie, UserProfile
@@ -71,9 +72,19 @@ class ProfileService:
         # 保存或更新
         if profile.id:
             db.session.merge(profile)
+            db.session.commit()
         else:
-            db.session.add(profile)
-        db.session.commit()
+            try:
+                db.session.add(profile)
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
+                # 并发情况下另一请求已创建，重新查询
+                profile = UserProfile.query.filter_by(user_id=user_id).first()
+                if not profile:
+                    profile = UserProfile(user_id=user_id)
+                    db.session.add(profile)
+                    db.session.commit()
         
         return profile
     

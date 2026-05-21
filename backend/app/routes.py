@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
+import re
 from pathlib import Path
 
-from flask import Blueprint, jsonify, render_template, request, session
+from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from sqlalchemy.orm import joinedload
 
 from backend.app import cache, db
 from backend.app.models import (Movie, MovieSimilarity, Rating, RecommendationFeedback, User, Review, ReviewLike,
-                               UserCollection, WatchLink, Notification, MovieChart, ChartItem, UserProfile,
-                               MovieList, MovieListItem, MovieListLike, MovieListComment)
+                               UserCollection, WatchLink, UserProfile)
 from backend.app.ncf_engine import ncf_engine
 from backend.app.services import ProfileService
 
@@ -126,7 +126,8 @@ def my_timeline():
 
 @bp.get("/dashboard")
 def dashboard():
-    return render_template("dashboard.html")
+    """Redirect to enhanced dashboard (legacy route preserved for existing nav links)"""
+    return redirect(url_for('main.enhanced_dashboard'))
 
 
 @bp.get("/enhanced-dashboard")
@@ -164,7 +165,8 @@ def recommendations_page():
 
 @bp.get("/app")
 def web_app():
-    return render_template("app.html")
+    """Redirect to portal (legacy SPA route preserved for existing nav links)"""
+    return redirect(url_for('main.index'))
 
 
 @bp.get("/movie/<int:movie_id>")
@@ -237,7 +239,14 @@ def register():
     password = data.get("password") or ""
 
     if not username or not password:
-        return jsonify({"error": "username and password required"}), 400
+        return jsonify({"error": "用户名和密码不能为空"}), 400
+
+    if len(username) > 64:
+        return jsonify({"error": "用户名不能超过64个字符"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
+    if not re.search(r'[a-zA-Z]', password) or not re.search(r'\d', password):
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
 
     if User.query.filter_by(username=username).first() is not None:
         return jsonify({"error": "username already exists"}), 409
@@ -264,14 +273,14 @@ def login():
     if not user.is_active:
         return jsonify({"error": "账户已被禁用"}), 403
 
-    # 执行登录（remember=True 持久化cookie，session.permanent 使PERMANENT_SESSION_LIFETIME生效）
-    login_user(user, remember=True)
-    session.permanent = True
-    
-    # 更新登录统计
+    # 先更新登录统计，确保 DB commit 后再设置 session
     user.last_login = datetime.utcnow()
     user.login_count += 1
     db.session.commit()
+
+    # 执行登录（remember=True 持久化cookie，session.permanent 使PERMANENT_SESSION_LIFETIME生效）
+    login_user(user, remember=True)
+    session.permanent = True
 
     return jsonify({
         "id": user.id, 
@@ -317,10 +326,10 @@ def forgot_password_reset():
         return jsonify({"error": "新密码至少需要6个字符"}), 400
 
     user = User.query.filter_by(username=username).first()
-    if not user:
-        return jsonify({"error": "用户不存在"}), 404
+    if not user or not user.security_answer_hash:
+        return jsonify({"error": "验证失败，请重新开始"}), 400
     if not user.check_security_answer(answer):
-        return jsonify({"error": "安全问题答案不正确"}), 401
+        return jsonify({"error": "验证失败，请重新开始"}), 400
 
     user.set_password(new_password)
     db.session.commit()
@@ -573,9 +582,13 @@ def rate_movie():
     if movie is None:
         return jsonify({"error": "movie not found"}), 404
 
-    rating_value = float(rating_value)
+    try:
+        rating_value = float(rating_value)
+    except (ValueError, TypeError):
+        return jsonify({"error": "评分必须是数字"}), 400
+    rating_value = round(rating_value * 2) / 2  # 四舍五入到 0.5
     if not (0.5 <= rating_value <= 5.0):
-        return jsonify({"error": "rating must be in [0.5, 5.0]"}), 400
+        return jsonify({"error": "评分必须在 0.5-5.0 之间"}), 400
 
     existing = Rating.query.filter_by(user_id=current_user.id, movie_id=movie.id).first()
     if existing is None:
@@ -1333,18 +1346,27 @@ def offline_metrics():
 def create_review():
     """发表评论"""
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': '请求格式错误，需要 JSON'}), 400
     movie_id = data.get('movie_id')
     content = data.get('content', '').strip()
     rating = data.get('rating')
-    
+
     if not movie_id or not content:
         return jsonify({'error': '电影ID和评论内容不能为空'}), 400
-    
+
     if len(content) < 5:
         return jsonify({'error': '评论内容至少5个字符'}), 400
-    
-    if rating and (rating < 0.5 or rating > 5):
-        return jsonify({'error': '评分必须在0.5-5之间'}), 400
+    if len(content) > 5000:
+        return jsonify({'error': '评论内容不能超过5000字'}), 400
+
+    if rating is not None:
+        try:
+            rating = float(rating)
+        except (ValueError, TypeError):
+            return jsonify({'error': '评分格式错误'}), 400
+        if rating < 0.5 or rating > 5:
+            return jsonify({'error': '评分必须在0.5-5之间'}), 400
     
     # 检查电影是否存在
     movie = Movie.query.get(movie_id)
@@ -1535,16 +1557,21 @@ def multi_model_evaluation():
 def add_collection():
     """添加收藏"""
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': '请求格式错误，需要 JSON'}), 400
     movie_id = data.get('movie_id')
     collection_type = data.get('collection_type', 'favorite')
     notes = data.get('notes', '').strip()
     rating = data.get('rating')
-    
+
     if not movie_id:
         return jsonify({'error': '电影ID不能为空'}), 400
-    
+
     if collection_type not in ['favorite', 'watchlist', 'seen']:
         return jsonify({'error': '收藏类型无效'}), 400
+
+    if len(notes) > 2000:
+        return jsonify({'error': '备注不能超过2000字'}), 400
     
     # 检查电影是否存在
     movie = Movie.query.get(movie_id)
@@ -1562,8 +1589,13 @@ def add_collection():
         return jsonify({'error': '该电影已在收藏列表中'}), 400
     
     # 验证个人评分
-    if rating and (rating < 0.5 or rating > 5):
-        return jsonify({'error': '评分必须在0.5-5之间'}), 400
+    if rating is not None:
+        try:
+            rating = float(rating)
+        except (ValueError, TypeError):
+            return jsonify({'error': '评分格式错误'}), 400
+        if rating < 0.5 or rating > 5:
+            return jsonify({'error': '评分必须在0.5-5之间'}), 400
     
     # 创建收藏
     collection = UserCollection(
@@ -1682,11 +1714,16 @@ def update_collection_notes(collection_id):
         return jsonify({'error': '没有权限'}), 403
     
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': '请求格式错误，需要 JSON'}), 400
     notes = data.get('notes', '').strip()
-    
+
+    if len(notes) > 2000:
+        return jsonify({'error': '备注不能超过2000字'}), 400
+
     collection.notes = notes
     db.session.commit()
-    
+
     return jsonify({
         'success': True,
         'message': '备注已更新'
@@ -1731,14 +1768,18 @@ def add_watch_link(movie_id):
         return jsonify({'error': '电影不存在'}), 404
     
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': '请求格式错误，需要 JSON'}), 400
     platform = data.get('platform', '').strip()
     url = data.get('url', '').strip()
     quality = data.get('quality', 'HD')
     is_free = data.get('is_free', True)
-    
+
     if not platform or not url:
         return jsonify({'error': '平台和链接不能为空'}), 400
-    
+    if len(url) > 2048:
+        return jsonify({'error': '链接过长'}), 400
+
     # 简单验证URL格式
     if not url.startswith(('http://', 'https://')):
         return jsonify({'error': '链接格式不正确'}), 400
@@ -1775,8 +1816,10 @@ def report_watch_link(link_id):
     link = WatchLink.query.get_or_404(link_id)
     
     data = request.get_json()
+    if data is None:
+        return jsonify({'error': '请求格式错误，需要 JSON'}), 400
     reason = data.get('reason', '').strip()
-    
+
     if not reason:
         return jsonify({'error': '请提供举报原因'}), 400
     
@@ -1874,156 +1917,6 @@ def my_submitted_movies():
         "total": pagination.total,
         "pages": pagination.pages
     })
-
-
-# ==================== 消息通知系统API ====================
-
-@bp.get("/api/notifications")
-@login_required
-def get_notifications():
-    """获取用户通知列表"""
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 20, type=int), 100)
-    unread_only = request.args.get('unread_only', 'false').lower() == 'true'
-    
-    query = Notification.query.filter_by(user_id=current_user.id)
-    
-    if unread_only:
-        query = query.filter_by(is_read=False)
-    
-    pagination = query.order_by(Notification.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
-    
-    # 统计未读数量
-    unread_count = Notification.query.filter_by(
-        user_id=current_user.id, is_read=False
-    ).count()
-    
-    return jsonify({
-        'notifications': [n.to_dict() for n in pagination.items],
-        'unread_count': unread_count,
-        'pagination': {
-            'page': pagination.page,
-            'pages': pagination.pages,
-            'per_page': pagination.per_page,
-            'total': pagination.total
-        }
-    })
-
-
-@bp.post("/api/notifications/<int:notification_id>/read")
-@login_required
-def mark_notification_read(notification_id):
-    """标记通知为已读"""
-    notification = Notification.query.get_or_404(notification_id)
-    
-    # 检查权限
-    if notification.user_id != current_user.id:
-        return jsonify({'error': '没有权限'}), 403
-    
-    notification.is_read = True
-    notification.read_at = datetime.utcnow()
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': '已标记为已读'
-    })
-
-
-@bp.post("/api/notifications/read-all")
-@login_required
-def mark_all_notifications_read():
-    """标记所有通知为已读"""
-    Notification.query.filter_by(
-        user_id=current_user.id, is_read=False
-    ).update({
-        'is_read': True,
-        'read_at': datetime.utcnow()
-    })
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'message': '所有通知已标记为已读'
-    })
-
-
-@bp.get("/api/notifications/unread-count")
-@login_required
-def get_unread_notification_count():
-    """获取未读通知数量"""
-    count = Notification.query.filter_by(
-        user_id=current_user.id, is_read=False
-    ).count()
-    
-    return jsonify({'unread_count': count})
-
-
-# ==================== 电影榜单系统API ====================
-
-@bp.get("/api/charts")
-def get_charts():
-    """获取榜单列表"""
-    chart_type = request.args.get('type', '')
-    
-    query = MovieChart.query.filter_by(is_active=True)
-    
-    if chart_type:
-        query = query.filter_by(chart_type=chart_type)
-    
-    charts = query.order_by(MovieChart.sort_order).all()
-    
-    return jsonify({
-        'charts': [c.to_dict() for c in charts]
-    })
-
-
-@bp.get("/api/charts/<int:chart_id>")
-def get_chart_detail(chart_id):
-    """获取榜单详情"""
-    chart = MovieChart.query.get_or_404(chart_id)
-    
-    if not chart.is_active:
-        return jsonify({'error': '榜单不存在'}), 404
-    
-    return jsonify({
-        'chart': chart.to_dict(),
-        'items': [item.to_dict() for item in chart.items[:50]]  # 最多返回50条
-    })
-
-
-@bp.get("/api/charts/popular")
-def get_popular_charts():
-    """获取热门榜单（首页展示用）"""
-    # 获取不同类型的榜单
-    hot_chart = MovieChart.query.filter_by(chart_type='hot', is_active=True).first()
-    top_rated_chart = MovieChart.query.filter_by(chart_type='top_rated', is_active=True).first()
-    editor_chart = MovieChart.query.filter_by(chart_type='editor_pick', is_active=True).first()
-    
-    result = {}
-    
-    if hot_chart:
-        result['hot'] = {
-            'chart': hot_chart.to_dict(),
-            'items': [item.to_dict() for item in hot_chart.items[:10]]
-        }
-    
-    if top_rated_chart:
-        result['top_rated'] = {
-            'chart': top_rated_chart.to_dict(),
-            'items': [item.to_dict() for item in top_rated_chart.items[:10]]
-        }
-    
-    if editor_chart:
-        result['editor_pick'] = {
-            'chart': editor_chart.to_dict(),
-            'items': [item.to_dict() for item in editor_chart.items[:10]]
-        }
-    
-    return jsonify(result)
 
 
 # ==================== 数据导出API ====================
@@ -2171,29 +2064,37 @@ def export_movie_data():
 @login_required
 @admin_required
 def export_system_backup():
-    """系统完整备份 - 管理员功能"""
+    """系统完整备份 - 管理员功能（轻量版，完整备份请用数据库工具）"""
     try:
-        # 创建完整备份
+        MAX_EXPORT = 5000
+        from sqlalchemy.orm import joinedload
+
         backup_data = {
             'backup_info': {
                 'created_at': datetime.utcnow().isoformat(),
                 'version': '1.0',
-                'created_by': current_user.username
+                'created_by': current_user.username,
+                'note': f'每个表最多导出 {MAX_EXPORT} 条记录，完整备份请使用数据库工具（如 mysqldump）'
             },
-            'users': [user.to_dict() for user in User.query.all()],
-            'movies': [movie.to_dict() for movie in Movie.query.all()],
-            'ratings': [rating.to_dict() for rating in Rating.query.all()],
-            'reviews': [review.to_dict() for review in Review.query.all()],
-            'collections': [collection.to_dict() for collection in UserCollection.query.all()],
-            'charts': [chart.to_dict() for chart in MovieChart.query.all()],
-            'chart_items': [item.to_dict() for item in ChartItem.query.all()]
+            'users': [user.to_dict() for user in User.query.limit(MAX_EXPORT).all()],
+            'movies': [movie.to_dict() for movie in Movie.query.limit(MAX_EXPORT).all()],
+            'ratings': [{
+                'id': r.id, 'user_id': r.user_id, 'movie_id': r.movie_id,
+                'rating': float(r.rating),
+                'timestamp': r.timestamp.isoformat() if r.timestamp else None
+            } for r in Rating.query.order_by(Rating.timestamp.desc()).limit(MAX_EXPORT).all()],
+            'reviews': [review.to_dict() for review in Review.query
+                       .options(joinedload(Review.user))
+                       .order_by(Review.created_at.desc()).limit(MAX_EXPORT).all()],
+            'collections': [collection.to_dict() for collection in UserCollection.query
+                          .options(joinedload(UserCollection.movie))
+                          .limit(MAX_EXPORT).all()],
         }
-        
-        # 返回JSON格式的备份
+
         response = jsonify(backup_data)
         response.headers['Content-Disposition'] = f'attachment; filename=movie_system_backup_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.json'
         return response
-        
+
     except Exception as e:
         return jsonify({"error": "系统备份失败", "details": str(e)}), 500
 
@@ -2410,22 +2311,21 @@ def genre_trends_analysis():
         # 获取过去12个月的类型趋势
         twelve_months_ago = datetime.utcnow() - timedelta(days=365)
         
-        # 按月统计各类型评分数量
+        # 按月统计各类型评分数量（使用 SUBSTR 兼容 SQLite/MySQL）
         monthly_genre_stats = db.session.query(
-            func.date_trunc('month', Rating.timestamp).label('month'),
+            func.substr(Rating.timestamp, 1, 7).label('month'),
             Movie.genres,
             func.count(Rating.id).label('count')
         ).join(Movie).filter(
             Rating.timestamp >= twelve_months_ago
         ).group_by(
-            func.date_trunc('month', Rating.timestamp),
+            func.substr(Rating.timestamp, 1, 7),
             Movie.genres
         ).order_by('month').all()
-        
+
         # 处理数据格式
         trend_data = {}
-        for month, genres, count in monthly_genre_stats:
-            month_str = month.strftime('%Y-%m') if month else None
+        for month_str, genres, count in monthly_genre_stats:
             if month_str:
                 genre_list = genres.split('|') if genres else ['未知']
                 for genre in genre_list:
@@ -2745,8 +2645,23 @@ def advanced_search():
         # 直接使用 Movie 模型预计算的 avg_rating 和 rating_count 字段
         movies_with_ratings = [movie.to_dict() for movie in pagination.items]
         
-        # 获取搜索建议
-        suggestions = get_search_suggestions(query) if query else []
+        # 获取搜索建议（内联简化版）
+        suggestions = []
+        if query:
+            title_matches = Movie.query.filter(
+                Movie.title.ilike(f"{query}%")
+            ).limit(5).all()
+            for m in title_matches:
+                suggestions.append(m.title)
+            genre_matches = Movie.query.filter(
+                Movie.genres.ilike(f"%{query}%")
+            ).distinct(Movie.genres).limit(3).all()
+            for m in genre_matches:
+                for g in (m.genres or '').split('|'):
+                    g = g.strip()
+                    if g and query.lower() in g.lower() and g not in suggestions:
+                        suggestions.append(g)
+            suggestions = suggestions[:8]
         
         # 计算搜索时间
         search_time = round(time.time() - start_time, 3)
@@ -2854,35 +2769,7 @@ def search_history():
         return jsonify({"error": "获取搜索历史失败", "details": str(e)}), 500
 
 
-def get_search_suggestions(query):
-    """获取搜索建议的辅助函数"""
-    try:
-        suggestions = []
-        
-        # 标题匹配
-        title_matches = Movie.query.filter(
-            Movie.title.ilike(f"{query}%")
-        ).limit(5).all()
-        
-        for movie in title_matches:
-            suggestions.append(movie.title)
-        
-        # 类型匹配
-        genre_matches = Movie.query.filter(
-            Movie.genres.ilike(f"%{query}%")
-        ).distinct(Movie.genres).limit(3).all()
-        
-        for movie in genre_matches:
-            genres = movie.genres.split('|') if movie.genres else []
-            for genre in genres:
-                genre = genre.strip()
-                if genre and query.lower() in genre.lower() and genre not in suggestions:
-                    suggestions.append(genre)
-        
-        return suggestions[:8]
-        
-    except Exception:
-        return []
+
 
 
 # ==================== 导出功能辅助函数 ====================
@@ -3288,409 +3175,3 @@ def user_insights_page():
     return render_template('user_insights.html')
 
 
-# ==================== 影单功能 API ====================
-
-@bp.post("/api/movie-lists")
-@login_required
-def create_movie_list():
-    """创建影单"""
-    try:
-        data = request.get_json() or request.form
-        
-        name = data.get('name', '').strip()
-        description = data.get('description', '').strip()
-        is_public = data.get('is_public', False)
-        allow_comments = data.get('allow_comments', True)
-        
-        if not name:
-            return jsonify({'error': '影单名称不能为空'}), 400
-        
-        movie_list = MovieList(
-            user_id=current_user.id,
-            name=name,
-            description=description,
-            is_public=is_public,
-            allow_comments=allow_comments
-        )
-        
-        db.session.add(movie_list)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': '影单创建成功',
-            'movie_list': movie_list.to_dict()
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '创建影单失败', 'details': str(e)}), 500
-
-
-@bp.get("/api/movie-lists")
-@login_required
-def get_my_movie_lists():
-    """获取当前用户的影单列表"""
-    try:
-        movie_lists = MovieList.query.filter_by(user_id=current_user.id).all()
-        
-        return jsonify({
-            'movie_lists': [ml.to_dict() for ml in movie_lists],
-            'count': len(movie_lists)
-        })
-        
-    except Exception as e:
-        return jsonify({'error': '获取影单列表失败', 'details': str(e)}), 500
-
-
-@bp.get("/api/movie-lists/public")
-def get_public_movie_lists():
-    """获取公开的影单列表"""
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        search = request.args.get('search', '').strip()
-        
-        from sqlalchemy.orm import joinedload, selectinload
-
-        query = MovieList.query.filter_by(is_public=True)\
-            .options(joinedload(MovieList.user))\
-            .options(selectinload(MovieList.items).joinedload(MovieListItem.movie))
-
-        if search:
-            query = query.filter(MovieList.name.ilike(f'%{search}%'))
-
-        query = query.order_by(MovieList.created_at.desc())
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        
-        return jsonify({
-            'movie_lists': [ml.to_dict() for ml in pagination.items],
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({'error': '获取公开影单失败', 'details': str(e)}), 500
-
-
-@bp.get("/api/movie-lists/<int:list_id>")
-def get_movie_list_detail(list_id):
-    """获取影单详情"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        # 检查权限
-        if not movie_list.is_public and movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限访问此影单'}), 403
-        
-        # 增加浏览次数
-        movie_list.increment_view()
-        
-        return jsonify({
-            'movie_list': movie_list.to_dict(include_items=True)
-        })
-        
-    except Exception as e:
-        return jsonify({'error': '获取影单详情失败', 'details': str(e)}), 500
-
-
-@bp.put("/api/movie-lists/<int:list_id>")
-@login_required
-def update_movie_list(list_id):
-    """更新影单"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        if movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限修改此影单'}), 403
-        
-        data = request.get_json() or request.form
-        
-        if 'name' in data:
-            movie_list.name = data['name'].strip()
-        
-        if 'description' in data:
-            movie_list.description = data['description'].strip()
-        
-        if 'is_public' in data:
-            movie_list.is_public = bool(data['is_public'])
-        
-        if 'allow_comments' in data:
-            movie_list.allow_comments = bool(data['allow_comments'])
-        
-        if 'cover_image' in data:
-            movie_list.cover_image = data['cover_image']
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': '影单更新成功',
-            'movie_list': movie_list.to_dict()
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '更新影单失败', 'details': str(e)}), 500
-
-
-@bp.delete("/api/movie-lists/<int:list_id>")
-@login_required
-def delete_movie_list(list_id):
-    """删除影单"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        if movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限删除此影单'}), 403
-        
-        db.session.delete(movie_list)
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': '影单删除成功'
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '删除影单失败', 'details': str(e)}), 500
-
-
-@bp.post("/api/movie-lists/<int:list_id>/movies")
-@login_required
-def add_movie_to_list(list_id):
-    """添加电影到影单"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        if movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限修改此影单'}), 403
-        
-        data = request.get_json() or request.form
-        movie_id = data.get('movie_id')
-        note = data.get('note', '')
-        
-        if not movie_id:
-            return jsonify({'error': '电影ID不能为空'}), 400
-        
-        success = movie_list.add_movie(movie_id, note)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '电影添加成功'
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': '该电影已在影单中'
-            }), 400
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '添加电影失败', 'details': str(e)}), 500
-
-
-@bp.delete("/api/movie-lists/<int:list_id>/movies/<int:movie_id>")
-@login_required
-def remove_movie_from_list(list_id, movie_id):
-    """从影单中移除电影"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        if movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限修改此影单'}), 403
-        
-        success = movie_list.remove_movie(movie_id)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': '电影移除成功'
-            })
-        else:
-            return jsonify({'error': '该电影不在影单中'}), 404
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '移除电影失败', 'details': str(e)}), 500
-
-
-@bp.post("/api/movie-lists/<int:list_id>/like")
-@login_required
-def like_movie_list(list_id):
-    """点赞/取消点赞影单"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        # 检查是否已点赞
-        existing_like = MovieListLike.query.filter_by(
-            movie_list_id=list_id,
-            user_id=current_user.id
-        ).first()
-        
-        if existing_like:
-            # 取消点赞
-            db.session.delete(existing_like)
-            movie_list.like_count -= 1
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'liked': False,
-                'like_count': movie_list.like_count
-            })
-        else:
-            # 点赞
-            like = MovieListLike(
-                movie_list_id=list_id,
-                user_id=current_user.id
-            )
-            db.session.add(like)
-            movie_list.like_count += 1
-            db.session.commit()
-            
-            return jsonify({
-                'success': True,
-                'liked': True,
-                'like_count': movie_list.like_count
-            })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '操作失败', 'details': str(e)}), 500
-
-
-@bp.post("/api/movie-lists/<int:list_id>/comments")
-@login_required
-def add_comment_to_movie_list(list_id):
-    """评论影单"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        if not movie_list.allow_comments:
-            return jsonify({'error': '该影单不允许评论'}), 403
-        
-        data = request.get_json() or request.form
-        content = data.get('content', '').strip()
-        parent_id = data.get('parent_id')
-        
-        if not content:
-            return jsonify({'error': '评论内容不能为空'}), 400
-        
-        comment = MovieListComment(
-            movie_list_id=list_id,
-            user_id=current_user.id,
-            content=content,
-            parent_id=parent_id
-        )
-        
-        db.session.add(comment)
-        movie_list.comment_count += 1
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': '评论成功',
-            'comment': comment.to_dict()
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': '评论失败', 'details': str(e)}), 500
-
-
-@bp.get("/api/movie-lists/<int:list_id>/comments")
-def get_movie_list_comments(list_id):
-    """获取影单评论列表"""
-    try:
-        movie_list = MovieList.query.get(list_id)
-        
-        if not movie_list:
-            return jsonify({'error': '影单不存在'}), 404
-        
-        # 检查权限
-        if not movie_list.is_public and movie_list.user_id != current_user.id:
-            return jsonify({'error': '您没有权限访问此影单'}), 403
-        
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        
-        query = MovieListComment.query.filter_by(
-            movie_list_id=list_id,
-            parent_id=None  # 只获取顶级评论
-        ).order_by(MovieListComment.created_at.desc())
-        
-        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
-        
-        comments = []
-        for comment in pagination.items:
-            comment_dict = comment.to_dict(include_replies=True)
-            comments.append(comment_dict)
-        
-        return jsonify({
-            'comments': comments,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({'error': '获取评论失败', 'details': str(e)}), 500
-
-
-# ==================== 影单页面路由 ====================
-
-@bp.get("/movie-lists")
-def movie_lists_page():
-    """影单首页"""
-    return render_template('movie_lists.html')
-
-
-@bp.get("/movie-lists/create")
-@login_required
-def create_movie_list_page():
-    """创建影单页面"""
-    return render_template('create_movie_list.html')
-
-
-@bp.get("/movie-lists/<int:list_id>")
-def movie_list_detail_page(list_id):
-    """影单详情页面"""
-    return render_template('movie_list_detail.html', list_id=list_id)
-
-
-@bp.get("/movie-lists/<int:list_id>/edit")
-@login_required
-def edit_movie_list_page(list_id):
-    """编辑影单页面"""
-    return render_template('edit_movie_list.html', list_id=list_id)

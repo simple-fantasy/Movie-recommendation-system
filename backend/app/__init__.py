@@ -106,10 +106,13 @@ def create_app() -> Flask:
                 db.session.rollback()
                 # 索引已存在或其他错误（忽略，不阻塞启动）
         # Auto-seed sample data if database is empty
-        from backend.app.models import Movie, User, Rating
-        from backend.app.seed import seed_sample_data
+        from backend.app.models import Movie, User, Rating, WatchLink
+        from backend.app.seed import seed_sample_data, _seed_watch_links
         just_seeded = seed_sample_data(db, Movie, User, Rating)
         if just_seeded:
+            # Seed watch links for sample movies
+            movies = Movie.query.all()
+            _seed_watch_links(db, WatchLink, movies)
             # Enrich posters in background thread so startup isn't blocked
             import threading
             def _enrich_posters():
@@ -129,11 +132,11 @@ def create_app() -> Flask:
         nonlocal _ncf_preloaded
         if _ncf_preloaded:
             return
-        _ncf_preloaded = True
         try:
             from backend.app.ncf_engine import ncf_engine
             if not ncf_engine.is_ready() and not ncf_engine.is_loading():
                 ncf_engine.load_async()
+            _ncf_preloaded = True
         except ImportError as e:
             # NCF引擎可选，没有torch时不影响其他功能
             app.logger.debug(f"NCF engine not loaded: {e}")

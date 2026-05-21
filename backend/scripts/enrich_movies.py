@@ -28,7 +28,7 @@ except ImportError:
     SERVICE_TYPE = 'mock'
     TMDBService = None
 
-from backend.services.douban_service import DoubanService, MockMovieService
+from backend.services.douban_service import MockMovieService
 
 
 def enrich_movies(limit: int = None, skip_existing: bool = True,
@@ -62,7 +62,6 @@ def enrich_movies(limit: int = None, skip_existing: bool = True,
                     print(f"TMDB服务初始化失败: {e}")
             else:
                 print("未配置TMDB_API_KEY，跳过TMDB服务")
-            services.append(DoubanService())
             services.append(MockMovieService())
             print(f"已初始化 {len(services)} 个电影信息服务（优先级降序）")
 

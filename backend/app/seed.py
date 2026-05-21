@@ -1,5 +1,113 @@
 """Auto-seed sample data when the database is empty."""
 
+
+def _seed_watch_links(db, WatchLink, movies):
+    """为种子电影添加在线观看链接，返回创建的链接数"""
+    watch_link_data = {
+        "The Shawshank Redemption": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=肖申克的救赎", "quality": "HD", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=The+Shawshank+Redemption+full+movie", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+        "The Godfather": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=教父", "quality": "4K", "is_free": False, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=The+Godfather+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "The Dark Knight": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=蝙蝠侠黑暗骑士", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=The+Dark+Knight+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+            {"platform": "iQiyi", "url": "https://www.iqiyi.com/search.html?key=蝙蝠侠黑暗骑士", "quality": "4K", "is_free": False, "is_official": False},
+        ],
+        "Pulp Fiction": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=低俗小说", "quality": "HD", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Pulp+Fiction+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Forrest Gump": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=阿甘正传", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "iQiyi", "url": "https://www.iqiyi.com/search.html?key=阿甘正传", "quality": "4K", "is_free": False, "is_official": True},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Forrest+Gump+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Inception": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=盗梦空间", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "iQiyi", "url": "https://www.iqiyi.com/search.html?key=盗梦空间", "quality": "4K", "is_free": False, "is_official": True},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Inception+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "The Matrix": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=黑客帝国", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=The+Matrix+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Interstellar": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=星际穿越", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "iQiyi", "url": "https://www.iqiyi.com/search.html?key=星际穿越", "quality": "4K", "is_free": False, "is_official": True},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Interstellar+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Spirited Away": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=千与千寻", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Spirited+Away+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Coco": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=寻梦环游记", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "iQiyi", "url": "https://www.iqiyi.com/search.html?key=寻梦环游记", "quality": "4K", "is_free": False, "is_official": True},
+        ],
+        "Avengers: Endgame": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=复仇者联盟4终局之战", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Avengers+Endgame+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Joker": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=小丑2019", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Joker+2019+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Your Name.": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=你的名字", "quality": "4K", "is_free": True, "is_official": False},
+        ],
+        "Parasite": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=寄生虫韩国电影", "quality": "4K", "is_free": True, "is_official": False},
+            {"platform": "YouTube", "url": "https://www.youtube.com/results?search_query=Parasite+2019+full+movie", "quality": "HD", "is_free": False, "is_official": False},
+        ],
+        "Fight Club": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=搏击俱乐部", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+        "Schindler's List": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=辛德勒的名单", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+        "Goodfellas": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=好家伙电影", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+        "The Lord of the Rings: The Return of the King": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=指环王3王者归来", "quality": "4K", "is_free": True, "is_official": False},
+        ],
+        "The Silence of the Lambs": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=沉默的羔羊", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+        "Whiplash": [
+            {"platform": "bilibili", "url": "https://search.bilibili.com/all?keyword=爆裂鼓手", "quality": "HD", "is_free": True, "is_official": False},
+        ],
+    }
+
+    count = 0
+    for movie in movies:
+        links = watch_link_data.get(movie.title, [])
+        for link_info in links:
+            existing = WatchLink.query.filter_by(movie_id=movie.id, url=link_info["url"]).first()
+            if existing:
+                continue
+            link = WatchLink(
+                movie_id=movie.id,
+                platform=link_info["platform"],
+                url=link_info["url"],
+                quality=link_info.get("quality", "HD"),
+                is_free=link_info.get("is_free", True),
+                is_official=link_info.get("is_official", False),
+                status="active",
+            )
+            db.session.add(link)
+            count += 1
+
+    if count:
+        db.session.commit()
+        print(f"[Seed] Created {count} watch links for {len(watch_link_data)} movies")
+    return count
+
+
 def seed_sample_data(db, Movie, User, Rating):
     """Seed sample movies, demo user, and ratings if the DB is empty."""
     if Movie.query.first() is not None:

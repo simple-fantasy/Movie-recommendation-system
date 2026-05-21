@@ -4,7 +4,7 @@
 """
 import logging
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import Any, Dict, Tuple
 import time
@@ -103,7 +103,7 @@ def error_response(message: str, code: str, status: int) -> Tuple[Dict[str, Any]
     return {
         "error": message,
         "code": code,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "path": request.path,
         "method": request.method
     }, status

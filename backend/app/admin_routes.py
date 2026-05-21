@@ -78,6 +78,7 @@ def dashboard():
         'active_users': User.query.filter_by(is_active=True).count(),
         'movies_with_poster': Movie.query.filter(Movie.poster_url.isnot(None)).count(),
         'movies_with_director': Movie.query.filter(Movie.director.isnot(None)).count(),
+        'pending_movies': Movie.query.filter_by(status='pending').count(),
     }
     
     # 最近注册用户
@@ -288,6 +289,7 @@ def delete_movie(movie_id):
     movie = Movie.query.get_or_404(movie_id)
     
     try:
+        # 清理关联数据，避免孤儿行
         db.session.delete(movie)
         db.session.commit()
         flash(f'电影《{movie.title}》已删除', 'success')
@@ -503,59 +505,6 @@ def delete_watch_link(link_id):
         flash(f'删除失败: {e}', 'error')
     
     return redirect(url_for('admin.watch_links_list'))
-
-
-# ==================== 电影榜单管理 ====================
-
-from backend.app.models import MovieChart, ChartItem
-
-@admin_bp.route('/charts')
-@login_required
-@admin_required
-def charts_list():
-    """榜单管理页面"""
-    charts = MovieChart.query.order_by(MovieChart.sort_order).all()
-    return render_template('admin/charts.html', charts=charts)
-
-
-@admin_bp.post('/charts/<int:chart_id>/toggle')
-@login_required
-@admin_required
-def toggle_chart(chart_id):
-    """启用/禁用榜单"""
-    chart = MovieChart.query.get_or_404(chart_id)
-    chart.is_active = not chart.is_active
-    db.session.commit()
-    
-    status = '启用' if chart.is_active else '禁用'
-    flash(f'榜单已{status}', 'success')
-    return redirect(url_for('admin.charts_list'))
-
-
-@admin_bp.post('/charts/create')
-@login_required
-@admin_required
-def create_chart():
-    """创建榜单"""
-    data = request.get_json() or request.form
-    
-    chart = MovieChart(
-        title=data.get('title'),
-        description=data.get('description'),
-        chart_type=data.get('chart_type', 'hot'),
-        genre=data.get('genre'),
-        year=data.get('year'),
-        sort_order=data.get('sort_order', 0)
-    )
-    
-    db.session.add(chart)
-    db.session.commit()
-    
-    if request.is_json:
-        return jsonify({'success': True, 'chart': chart.to_dict()})
-    
-    flash('榜单创建成功', 'success')
-    return redirect(url_for('admin.charts_list'))
 
 
 # ==================== 电影元数据管理 ====================
@@ -795,116 +744,6 @@ def users_permissions():
         return jsonify({'error': str(e)}), 500
 
 
-# ==================== 消息通知系统 ====================
-
-@admin_bp.route('/notification-management')
-@login_required
-@admin_required
-def notification_management():
-    """消息通知管理页面"""
-    return render_template('admin/notification_management.html')
-
-
-@admin_bp.route('/api/notification-stats')
-@login_required
-@admin_required
-def notification_stats():
-    """通知统计API"""
-    from sqlalchemy import func
-    try:
-        from backend.app.models import Notification
-        from datetime import datetime
-        
-        # 总通知数
-        total_notifications = Notification.query.count()
-        
-        # 已读通知数
-        read_notifications = Notification.query.filter_by(is_read=True).count()
-        
-        # 未读通知数
-        unread_notifications = Notification.query.filter_by(is_read=False).count()
-        
-        # 今日发送通知数
-        today = datetime.utcnow().date()
-        today_notifications = Notification.query.filter(
-            func.date(Notification.created_at) == today
-        ).count()
-        
-        return jsonify({
-            'total_notifications': total_notifications,
-            'read_notifications': read_notifications,
-            'unread_notifications': unread_notifications,
-            'today_notifications': today_notifications
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@admin_bp.route('/api/notifications')
-@login_required
-@admin_required
-def notifications():
-    """通知列表API"""
-    try:
-        from backend.app.models import Notification
-        
-        page = request.args.get('page', 1, type=int)
-        search = request.args.get('search', '').strip()
-        notification_type = request.args.get('type', '').strip()
-        status = request.args.get('status', '').strip()
-        
-        # 构建查询
-        query = Notification.query
-        
-        # 搜索过滤
-        if search:
-            query = query.filter(
-                (Notification.title.ilike(f'%{search}%')) |
-                (Notification.content.ilike(f'%{search}%'))
-            )
-        
-        # 类型过滤
-        if notification_type:
-            query = query.filter_by(type=notification_type)
-        
-        # 状态过滤
-        if status == 'read':
-            query = query.filter_by(is_read=True)
-        elif status == 'unread':
-            query = query.filter_by(is_read=False)
-        
-        # 分页
-        pagination = query.paginate(page=page, per_page=20, error_out=False)
-        
-        notifications = []
-        for notification in pagination.items:
-            notifications.append({
-                'id': notification.id,
-                'title': notification.title,
-                'content': notification.content,
-                'type': notification.type,
-                'target_user': notification.user.username if notification.user else None,
-                'is_read': notification.is_read,
-                'created_at': _safe_isoformat(notification.created_at)
-            })
-        
-        return jsonify({
-            'notifications': notifications,
-            'pagination': {
-                'page': pagination.page,
-                'pages': pagination.pages,
-                'per_page': pagination.per_page,
-                'total': pagination.total,
-                'has_next': pagination.has_next,
-                'has_prev': pagination.has_prev
-            }
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 # ==================== 评分审核系统 ====================
 
 @admin_bp.route('/ratings/pending')
@@ -927,8 +766,9 @@ def pending_ratings():
     )
 
     # 近似总数（instant），用于"是否有下一页"的假分页
+    # 使用 MAX(id) 兼容 SQLite/MySQL，走主键索引毫秒级
     approx_total = db.session.execute(
-        db.text("SELECT table_rows FROM information_schema.tables WHERE table_name='ratings' AND table_schema=DATABASE()")
+        db.text("SELECT MAX(id) FROM ratings")
     ).scalar() or 0
 
     class FastPagination:
@@ -986,55 +826,6 @@ def ratings_stats():
     })
 
 
-# ==================== 通知管理 ====================
-
-from backend.app.models import Notification
-
-@admin_bp.route('/notifications/send', methods=['POST'])
-@login_required
-@admin_required
-def send_notification():
-    """发送系统通知"""
-    data = request.get_json() or request.form
-    
-    title = data.get('title', '').strip()
-    content = data.get('content', '').strip()
-    user_ids = data.get('user_ids', [])  # 空列表表示发给所有用户
-    
-    if not title:
-        if request.is_json:
-            return jsonify({'error': '标题不能为空'}), 400
-        flash('标题不能为空', 'error')
-        return redirect(url_for('admin.dashboard'))
-    
-    # 发送给指定用户或所有用户
-    if user_ids:
-        for user_id in user_ids:
-            notification = Notification(
-                user_id=user_id,
-                type='system',
-                title=title,
-                content=content
-            )
-            db.session.add(notification)
-    else:
-        # 发送给所有用户
-        users = User.query.filter_by(is_active=True).all()
-        for user in users:
-            notification = Notification(
-                user_id=user.id,
-                type='system',
-                title=title,
-                content=content
-            )
-            db.session.add(notification)
-    
-    db.session.commit()
-    
-    if request.is_json:
-        return jsonify({'success': True, 'message': '通知发送成功'})
-    
-    flash('通知发送成功', 'success')
     return redirect(url_for('admin.dashboard'))
 
 

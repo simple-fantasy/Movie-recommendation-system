@@ -55,8 +55,6 @@
               <li><a class="dropdown-item" href="/collections">我的收藏</a></li>
               <li><a class="dropdown-item" href="/ratings">我的评分</a></li>
               <li><a class="dropdown-item" href="/reviews">我的评论</a></li>
-              <li><a class="dropdown-item" href="/movie-lists">我的影单</a></li>
-              <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="/user/insights">用户洞察</a></li>
               <li><a class="dropdown-item" href="/user/profile">用户画像</a></li>
               <li><a class="dropdown-item" href="/user/settings">账户设置</a></li>
@@ -104,10 +102,6 @@
       <a href="/collections" class="tab-item" data-tab="collections">
         <i class="ph ph-bookmark-simple"></i>
         <span>收藏</span>
-      </a>
-      <a href="/movie-lists" class="tab-item" data-tab="lists">
-        <i class="ph ph-list-numbers"></i>
-        <span>影单</span>
       </a>
       <a href="/user/profile" class="tab-item" data-tab="profile">
         <i class="ph ph-user"></i>
@@ -236,7 +230,6 @@ window._authPromise = (async function initAuth() {
           home: path === '/app' || path === '/',
           recs: path.startsWith('/recommendations'),
           collections: path.startsWith('/collections'),
-          lists: path.startsWith('/movie-lists'),
           profile: path.startsWith('/user'),
         };
         if (matches[tab]) item.classList.add('active');

@@ -4,8 +4,7 @@ API限流中间件
 """
 import time
 from collections import defaultdict
-from functools import wraps
-from typing import Callable, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 from flask import jsonify, request, g
 from flask_login import current_user
@@ -124,72 +123,6 @@ def get_client_identifier() -> str:
         else:
             ip = request.remote_addr
         return f"ip:{ip}"
-
-
-def rate_limit(limit_type: str = 'default'):
-    """
-    限流装饰器
-    
-    Args:
-        limit_type: 限流类型
-    
-    Returns:
-        装饰器函数
-    """
-    def decorator(f: Callable) -> Callable:
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            # 检查是否启用限流
-            from flask import current_app
-            if not current_app.config.get('RATE_LIMIT_ENABLED', True):
-                return f(*args, **kwargs)
-            
-            # 获取客户端标识符
-            identifier = get_client_identifier()
-            
-            # 检查是否允许请求
-            allowed, info = rate_limiter.is_allowed(identifier, limit_type)
-            
-            # 记录限流信息
-            g.rate_limit_info = info
-            
-            if not allowed:
-                # 记录限流日志
-                logger.warning(
-                    "Rate limit exceeded",
-                    identifier=identifier,
-                    limit_type=limit_type,
-                    path=request.path,
-                    method=request.method
-                )
-                
-                # 返回429错误
-                response = jsonify({
-                    'error': '请求过于频繁，请稍后再试',
-                    'code': 'RATE_LIMIT_EXCEEDED',
-                    'retry_after': info['retry_after']
-                })
-                response.status_code = 429
-                response.headers['Retry-After'] = str(info['retry_after'])
-                response.headers['X-RateLimit-Limit'] = str(info['limit'])
-                response.headers['X-RateLimit-Remaining'] = '0'
-                response.headers['X-RateLimit-Reset'] = str(info['reset'])
-                
-                return response
-            
-            # 添加限流信息到响应头
-            response = f(*args, **kwargs)
-            
-            # 如果返回的是Response对象，添加限流头
-            if hasattr(response, 'headers'):
-                response.headers['X-RateLimit-Limit'] = str(info['limit'])
-                response.headers['X-RateLimit-Remaining'] = str(info['remaining'])
-                response.headers['X-RateLimit-Reset'] = str(info['reset'])
-            
-            return response
-        
-        return decorated_function
-    return decorator
 
 
 def rate_limit_middleware(app):

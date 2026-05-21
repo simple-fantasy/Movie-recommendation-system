@@ -167,21 +167,80 @@
           </div>
 
           <!-- Watch Links -->
-          <div v-if="watchLinks.length" class="glass-strong p-4 rounded-3 mb-4">
-            <h3 class="h5 fw-bold mb-3 d-flex align-items-center gap-2">
-              <i class="ph ph-play-circle" style="color: var(--cinema-accent);"></i>
-              观看渠道
-            </h3>
-            <div class="d-flex flex-wrap gap-2">
+          <div class="glass-strong p-4 rounded-3 mb-4">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h3 class="h5 fw-bold mb-0 d-flex align-items-center gap-2">
+                <i class="ph ph-play-circle" style="color: var(--cinema-accent);"></i>
+                观看渠道
+                <span v-if="watchLinks.length" class="text-muted small fw-normal">
+                  ({% raw %}{{ watchLinks.length }}{% endraw %})
+                </span>
+              </h3>
+              <button v-if="user" class="btn btn-cinema-outline btn-sm d-inline-flex align-items-center gap-1"
+                      @click="showWatchForm = !showWatchForm">
+                <i class="ph" :class="showWatchForm ? 'ph-x' : 'ph-plus'"></i>
+                {% raw %}{{ showWatchForm ? '取消' : '提交链接' }}{% endraw %}
+              </button>
+            </div>
+
+            <!-- Submit Watch Link Form -->
+            <div v-if="showWatchForm" class="mb-3 p-3 rounded-2" style="background: rgba(0,0,0,0.2);">
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <select v-model="newWatchPlatform" class="form-select form-select-sm">
+                    <option value="">选择平台</option>
+                    <option value="bilibili">bilibili</option>
+                    <option value="YouTube">YouTube</option>
+                    <option value="iQiyi">iQiyi</option>
+                    <option value="Youku">Youku</option>
+                    <option value="Tencent Video">腾讯视频</option>
+                    <option value="Netflix">Netflix</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <input v-model="newWatchUrl" type="url" class="form-control form-control-sm"
+                         placeholder="观看链接 (https://...)">
+                </div>
+                <div class="col-md-2">
+                  <button class="btn btn-cinema btn-sm w-100"
+                          @click="submitWatchLink"
+                          :disabled="!newWatchPlatform || !newWatchUrl || submittingWatch">
+                    {% raw %}{{ submittingWatch ? '提交中' : '提交' }}{% endraw %}
+                  </button>
+                </div>
+              </div>
+              <div class="d-flex gap-3 mt-2">
+                <label class="small text-muted d-flex align-items-center gap-1">
+                  <input v-model="newWatchFree" type="checkbox" checked> 免费
+                </label>
+                <select v-model="newWatchQuality" class="form-select form-select-sm" style="width:auto;">
+                  <option value="HD">HD</option>
+                  <option value="4K">4K</option>
+                  <option value="SD">SD</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Links List -->
+            <div v-if="watchLinks.length" class="d-flex flex-wrap gap-2">
               <a v-for="link in watchLinks" :key="link.id"
                  :href="link.url" target="_blank" rel="noopener"
-                 class="btn btn-cinema-outline btn-sm d-inline-flex align-items-center gap-2">
-                <span>{% raw %}{{ link.platform }}{% endraw %}</span>
+                 class="btn btn-cinema-outline btn-sm d-inline-flex align-items-center gap-2"
+                 style="transition: all 0.2s;">
+                <span class="fw-medium">{% raw %}{{ link.platform }}{% endraw %}</span>
                 <span v-if="link.quality" class="badge bg-dark text-light">{% raw %}{{ link.quality }}{% endraw %}</span>
                 <span v-if="link.is_free" class="badge bg-success">免费</span>
                 <span v-if="link.is_official" class="badge badge-accent">官方</span>
                 <i class="ph ph-arrow-square-out"></i>
               </a>
+            </div>
+
+            <!-- Empty state -->
+            <div v-else class="text-center text-muted py-3">
+              <i class="ph ph-link-break" style="font-size: 1.5rem; display: block; margin-bottom: 0.4rem;"></i>
+              <small v-if="user">暂无观看链接，点击右上角"提交链接"来添加</small>
+              <small v-else>暂无可用观看链接</small>
             </div>
           </div>
 
@@ -394,6 +453,14 @@
 
         // Poster fallback
         posterFailed: false,
+
+        // Watch link submission
+        showWatchForm: false,
+        newWatchPlatform: '',
+        newWatchUrl: '',
+        newWatchFree: true,
+        newWatchQuality: 'HD',
+        submittingWatch: false,
       };
     },
 
@@ -655,6 +722,36 @@
         }
         if (Array.isArray(actors)) return actors.slice(0, 3).join('、');
         return String(actors);
+      },
+
+      // ── Watch Link Submission ──
+      async submitWatchLink() {
+        if (!this.newWatchPlatform || !this.newWatchUrl) return;
+        if (!this.newWatchUrl.startsWith('http://') && !this.newWatchUrl.startsWith('https://')) {
+          showToast('请输入有效的链接 (https://...)', 'error');
+          return;
+        }
+        this.submittingWatch = true;
+        try {
+          await api('/api/movies/' + this.movieId + '/watch-links', {
+            method: 'POST',
+            body: {
+              platform: this.newWatchPlatform,
+              url: this.newWatchUrl,
+              quality: this.newWatchQuality,
+              is_free: this.newWatchFree,
+            },
+          });
+          this.newWatchPlatform = '';
+          this.newWatchUrl = '';
+          this.showWatchForm = false;
+          showToast('链接已提交，审核通过后显示');
+          this.loadWatchLinks();
+        } catch (e) {
+          showToast(e.message || '提交失败', 'error');
+        } finally {
+          this.submittingWatch = false;
+        }
       },
 
       formatDate(str) {

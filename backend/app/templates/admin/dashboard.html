@@ -48,6 +48,20 @@
             <div class="label">管理员</div>
         </div>
     </div>
+
+    {% if stats.pending_movies > 0 %}
+    <div class="col-md-3">
+        <a href="{{ url_for('admin.movies_list', status='pending') }}" class="text-decoration-none">
+            <div class="stat-card" style="border-left: 3px solid var(--bs-warning);">
+                <div class="icon bg-warning bg-opacity-10 text-warning">
+                    <i class="bi bi-hourglass-split"></i>
+                </div>
+                <div class="number text-warning">{{ stats.pending_movies }}</div>
+                <div class="label">待审核电影 →</div>
+            </div>
+        </a>
+    </div>
+    {% endif %}
 </div>
 
 <div class="row g-4">

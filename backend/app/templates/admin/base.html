@@ -440,10 +440,6 @@
                 <i class="bi bi-link-45deg"></i>
                 <span>观看链接</span>
             </a>
-            <a href="{{ url_for('admin.charts_list') }}" class="{% if request.endpoint.startswith('admin.charts') %}active{% endif %}">
-                <i class="bi bi-trophy"></i>
-                <span>榜单管理</span>
-            </a>
             <a href="{{ url_for('admin.pending_ratings') }}" class="{% if request.endpoint.startswith('admin.pending_ratings') %}active{% endif %}">
                 <i class="bi bi-star"></i>
                 <span>评分审核</span>
@@ -455,10 +451,6 @@
             <a href="/admin/permission-management" class="{% if request.endpoint == 'admin.permission_management' %}active{% endif %}">
                 <i class="bi bi-shield-check"></i>
                 <span>权限管理</span>
-            </a>
-            <a href="/admin/notification-management" class="{% if request.endpoint == 'admin.notification_management' %}active{% endif %}">
-                <i class="bi bi-bell"></i>
-                <span>通知管理</span>
             </a>
             <a href="{{ url_for('admin.data_export') }}" class="{% if request.endpoint == 'admin.data_export' %}active{% endif %}">
                 <i class="bi bi-download"></i>
