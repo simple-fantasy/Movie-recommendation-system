@@ -3,15 +3,15 @@
 使用pydantic进行配置验证和管理
 """
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
+
+from pydantic import Field, validator
 
 try:
     from pydantic_settings import BaseSettings
 except ImportError:
-    # pydantic < 2.0
     from pydantic import BaseSettings
-
-from pydantic import Field, validator
 
 
 class Settings(BaseSettings):
@@ -19,18 +19,18 @@ class Settings(BaseSettings):
     
     # Flask基础配置
     flask_env: str = Field(default="development", env="FLASK_ENV")
-    secret_key: str = Field(default="dev-secret-key", env="SECRET_KEY")
-    debug: bool = Field(default=True, env="DEBUG")
-    
-    # 数据库配置
+    secret_key: str = Field(default="", env="SECRET_KEY")
+    debug: bool = Field(default=False, env="DEBUG")
+
+    # 数据库配置 — 必须通过 .env 文件或环境变量提供
     database_url: str = Field(
-        default="mysql+pymysql://root:ftrk2756@localhost:3306/movie_rec?charset=utf8mb4",
+        default="",
         env="DATABASE_URL"
     )
-    
-    # TMDB API配置
+
+    # TMDB API配置 — 必须通过 .env 文件或环境变量提供
     tmdb_api_key: str = Field(
-        default="f0a5731f00e718c73788920729a24b9a",
+        default="",
         env="TMDB_API_KEY"
     )
     
@@ -79,6 +79,8 @@ class Settings(BaseSettings):
     @validator("database_url")
     def validate_database_url(cls, v):
         """验证数据库URL格式"""
+        if not v:
+            return v  # 允许空值（由 .env 提供）
         allowed_drivers = ["mysql+pymysql", "sqlite", "postgresql"]
         if not any(v.startswith(d) for d in allowed_drivers):
             raise ValueError(f"不支持的数据库驱动，支持的驱动: {', '.join(allowed_drivers)}")
@@ -112,7 +114,7 @@ class Settings(BaseSettings):
         return opts
     
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
 
