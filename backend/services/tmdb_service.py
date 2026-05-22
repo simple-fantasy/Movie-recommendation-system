@@ -160,3 +160,34 @@ class TMDBService:
         if not countries:
             return None
         return ', '.join([c.get('name', '') for c in countries[:3]])
+
+    def get_watch_providers(self, tmdb_id: int) -> Dict:
+        """
+        获取电影的观影/流媒体提供商信息。
+
+        TMDB API: /movie/{id}/watch/providers
+        返回各地区的流媒体、租赁、购买渠道。
+
+        返回格式:
+            {
+                "results": {
+                    "CN": {"link": "...", "flatrate": [...], "rent": [...], "buy": [...]},
+                    "US": {...},
+                    ...
+                }
+            }
+        """
+        url = f"{self.base_url}/movie/{tmdb_id}/watch/providers"
+        params = {'api_key': self.api_key}
+        return self._make_request(url, params)
+
+    def get_cn_watch_link(self, tmdb_id: int) -> str | None:
+        """
+        获取电影在中国区的 TMDB watch 页面链接。
+
+        TMDB 不直接提供播放链接，但返回的 link 字段指向 TMDB 的
+        watch 聚合页面，用户可以在这里看到所有提供商的列表。
+        """
+        providers = self.get_watch_providers(tmdb_id)
+        cn_data = providers.get('results', {}).get('CN', {})
+        return cn_data.get('link')

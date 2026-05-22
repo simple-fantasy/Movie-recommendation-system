@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         api('/api/auth/forgot-password/check', {
             method: 'POST',
-            body: JSON.stringify({ username: username })
+            body: { username: username }
         }).then(function (res) {
             if (res.question) {
                 currentUsername = res.username;
@@ -132,11 +132,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         api('/api/auth/forgot-password/reset', {
             method: 'POST',
-            body: JSON.stringify({
+            body: {
                 username: currentUsername,
                 answer: answer,
                 new_password: newPw
-            })
+            }
         }).then(function (res) {
             if (res.success) {
                 showSuccess();

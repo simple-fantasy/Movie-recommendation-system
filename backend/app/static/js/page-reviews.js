@@ -1,8 +1,8 @@
 function getStatusBadge(status) {
   const badges = {
-    approved: { class: 'bg-green-100 text-green-700', text: '已通过' },
-    pending: { class: 'bg-yellow-100 text-yellow-700', text: '待审核' },
-    rejected: { class: 'bg-red-100 text-red-700', text: '已拒绝' },
+    approved: { class: 'bg-success', text: '已通过' },
+    pending: { class: 'bg-warning text-dark', text: '待审核' },
+    rejected: { class: 'bg-danger', text: '已拒绝' },
   };
   const b = badges[status] || badges.approved;
   return `<span class="badge ${b.class}">${b.text}</span>`;
@@ -127,11 +127,11 @@ async function postReview() {
   try {
     await api('/api/reviews', {
       method: 'POST',
-      body: JSON.stringify({
+      body: {
         movie_id: parseInt(movieId),
         rating: rating ? parseFloat(rating) : undefined,
         content: content,
-      }),
+      },
     });
 
     if (msg) {
@@ -153,41 +153,16 @@ async function postReview() {
   }
 }
 
-function setAuthUI(loggedIn, username, isAdmin) {
-  const authStatus = document.getElementById('authStatus');
-  const btnLogin = document.getElementById('btnLoginPage');
-  const btnLogout = document.getElementById('btnLogout');
-  const adminNav = document.getElementById('adminNavItem');
-  if (authStatus) authStatus.textContent = loggedIn ? `已登录：${username}` : '未登录';
-  if (btnLogin) btnLogin.style.display = loggedIn ? 'none' : 'inline-block';
-  if (btnLogout) btnLogout.style.display = loggedIn ? 'inline-block' : 'none';
-  if (adminNav) adminNav.style.display = loggedIn && isAdmin ? 'block' : 'none';
-}
-
+// 认证由 base.html 内联脚本统一处理，此处复用 window._authPromise
 async function initAuth() {
   try {
-    const data = await api('/api/me');
-    if (data.authenticated) {
-      setAuthUI(true, data.username, data.is_admin);
+    const data = window._authPromise ? await window._authPromise : await api('/api/me');
+    if (data && data.authenticated) {
       await loadReviews();
-    } else {
-      setAuthUI(false, '');
     }
   } catch (_err) {
-    setAuthUI(false, '');
+    // 未登录时不显示错误，由 base.html 处理 UI
   }
-}
-
-const btnLogout = document.getElementById('btnLogout');
-if (btnLogout) {
-  btnLogout.onclick = async () => {
-    try {
-      await api('/api/auth/logout', { method: 'POST', body: '{}' });
-      window.location.reload();
-    } catch (err) {
-      alert('退出失败：' + err.message);
-    }
-  };
 }
 
 const btnRefresh = document.getElementById('btnRefresh');

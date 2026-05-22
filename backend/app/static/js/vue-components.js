@@ -1,5 +1,17 @@
 /* =========================================
-   CineMatch Vue 3 Components (Global Build)
+   CineMatch Vue 3 全局组件（CDN / Options API）
+
+   提供 5 个可复用的 Vue 3 组件:
+   - StarRating:   星级评分输入/展示组件
+   - MovieCard:    电影卡片（海报 + 悬停浮层 + 快捷操作）
+   - MovieRow:     横向滚动电影行（带加载骨架和空状态）
+   - SearchBox:    搜索输入框（带加载指示器）
+   - SkeletonGrid: 网格加载骨架屏
+
+   所有组件通过 window.CinemaComponents 暴露给各页面 Vue App。
+   页面级 JS 通过解构引入: const { MovieCard, StarRating } = window.CinemaComponents;
+
+   依赖: Vue 3 全局构建（CDN），base.html 已加载
    ========================================= */
 
 const { createApp } = Vue;
@@ -155,7 +167,7 @@ const MovieRow = {
         <h5>{{ emptyText }}</h5>
         <p>{{ emptySubtext }}</p>
       </div>
-      <div v-else class="scroll-container" ref="scrollContainer">
+      <div v-else class="scroll-container">
         <movie-card v-for="movie in movies" :key="movie.id"
                     :movie="movie" show-rating
                     @click="$emit('movieClick', $event)"
@@ -163,29 +175,6 @@ const MovieRow = {
         </movie-card>
       </div>
     </section>
-  `,
-  methods: {
-    scrollLeft() {
-      this.$refs.scrollContainer?.scrollBy({ left: -600, behavior: 'smooth' });
-    },
-    scrollRight() {
-      this.$refs.scrollContainer?.scrollBy({ left: 600, behavior: 'smooth' });
-    }
-  }
-};
-
-/* ---------- CinemaToast ---------- */
-const CinemaToast = {
-  props: {
-    message: String,
-    type: { type: String, default: 'success' }
-  },
-  template: `
-    <div class="toast-custom" :class="'toast-' + type"
-         style="opacity:1; transform:none; display:inline-flex; gap:0.5rem; align-items:center;">
-      <i :class="type === 'error' ? 'ph ph-warning-circle' : 'ph ph-check-circle'" style="font-size:1.25rem;"></i>
-      <span>{{ message }}</span>
-    </div>
   `
 };
 
@@ -234,7 +223,6 @@ window.CinemaComponents = {
   StarRating,
   MovieCard,
   MovieRow,
-  CinemaToast,
   SearchBox,
   SkeletonGrid
 };

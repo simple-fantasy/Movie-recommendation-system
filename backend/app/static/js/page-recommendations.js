@@ -179,10 +179,22 @@
         filterGenre: null,
         filterGenres: [],
         showFilters: false,
+
+        // NCF model status
+        ncfStatus: { ready: false, loading: false, error: null },
+        ncfStatusCheckTimer: null,
       };
     },
 
     computed: {
+      ncfStrategyAvailable() {
+        return this.ncfStatus.ready;
+      },
+      ncfStrategyLabel() {
+        if (this.ncfStatus.loading) return 'NCF (加载中...)';
+        if (!this.ncfStatus.ready) return 'NCF (不可用)';
+        return 'NCF';
+      },
       movies() {
         let list = this.allMovies;
         if (this.filterGenre) {
@@ -225,10 +237,38 @@
       } else {
         this.currentStrategy = 'hybrid';
       }
+      // 检查 NCF 模型状态
+      this.checkNcfStatus();
       this.loadRecommendations();
     },
 
+    beforeUnmount() {
+      if (this.ncfStatusCheckTimer) {
+        clearInterval(this.ncfStatusCheckTimer);
+      }
+    },
+
     methods: {
+      async checkNcfStatus() {
+        try {
+          const status = await api('/api/ncf/status');
+          this.ncfStatus = status;
+          // 如果正在加载中，每 5 秒轮询一次
+          if (status.loading) {
+            this.ncfStatusCheckTimer = setInterval(async () => {
+              const s = await api('/api/ncf/status');
+              this.ncfStatus = s;
+              if (!s.loading) {
+                clearInterval(this.ncfStatusCheckTimer);
+                this.ncfStatusCheckTimer = null;
+              }
+            }, 5000);
+          }
+        } catch (_e) {
+          this.ncfStatus = { ready: false, loading: false, error: '无法获取状态' };
+        }
+      },
+
       async checkAuth() {
         try {
           const me =

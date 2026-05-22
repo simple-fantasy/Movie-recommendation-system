@@ -7,9 +7,16 @@ function displayGenresChart(genres) {
 
   if (genresChart) {
     genresChart.dispose();
+    genresChart = null;
   }
 
+  // 无数据时显示提示，避免渲染空白图表
   const data = Object.entries(genres || {}).map(([name, value]) => ({ name, value }));
+  if (!data.length) {
+    chartDom.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height:300px;"><span style="font-size:2rem;opacity:0.4;margin-bottom:0.5rem;">📊</span><span>暂无数据，多评几部电影后就能看到偏好分析啦</span></div>';
+    return;
+  }
+
   genresChart = echarts.init(chartDom);
 
   const option = {
@@ -53,9 +60,16 @@ function displayYearsChart(years) {
 
   if (yearsChart) {
     yearsChart.dispose();
+    yearsChart = null;
   }
 
+  // 无数据时显示提示，避免渲染空白图表
   const data = Object.entries(years || {}).map(([name, value]) => ({ name, value }));
+  if (!data.length) {
+    chartDom.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height:300px;"><span style="font-size:2rem;opacity:0.4;margin-bottom:0.5rem;">📅</span><span>暂无数据，多评几部电影后就能看到偏好分析啦</span></div>';
+    return;
+  }
+
   yearsChart = echarts.init(chartDom);
 
   const option = {
@@ -233,7 +247,7 @@ async function refreshProfile() {
     });
 
     if (data.success) {
-      displayProfile(data.profile);
+      displayProfile(data.profile, data.total_ratings || 0, data.needs_more_data);
       alert('画像刷新成功！');
     } else {
       alert('画像刷新失败：' + (data.error || '请稍后重试'));

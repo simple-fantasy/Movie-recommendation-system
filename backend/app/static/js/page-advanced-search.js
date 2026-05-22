@@ -1,26 +1,7 @@
-const GENRE_MAP = {
-  'Action': '动作',
-  'Adventure': '冒险',
-  'Animation': '动画',
-  'Children': '儿童',
-  'Comedy': '喜剧',
-  'Crime': '犯罪',
-  'Documentary': '纪录片',
-  'Drama': '剧情',
-  'Fantasy': '奇幻',
-  'Film-Noir': '黑色电影',
-  'Horror': '恐怖',
-  'Musical': '音乐',
-  'Mystery': '悬疑',
-  'Romance': '爱情',
-  'Sci-Fi': '科幻',
-  'Thriller': '惊悚',
-  'War': '战争',
-  'Western': '西部',
-};
+// GENRE_MAP 由 common.js 全局提供（window.GENRE_MAP），此处不再重复定义
 
 function formatGenre(genre) {
-  return GENRE_MAP[genre] || genre;
+  return (window.GENRE_MAP || {})[genre] || genre;
 }
 
 function formatGenres(genres) {
@@ -377,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const poster = movie.poster_url || movie.poster;
           const title = escapeHtml(movie.title);
           const posterHTML = hasValidPoster(poster)
-            ? `<img src="${poster}" alt="${title}" class="movie-poster" loading="lazy" onerror="this.replaceWith(this.nextElementSibling)" />`
+            ? `<img src="${escapeHtml(poster)}" alt="${title}" class="movie-poster" loading="lazy" onerror="var fb=this.nextElementSibling;fb.style.display='';this.replaceWith(fb)" />`
             : '';
           const fallbackHTML = posterHTML
             ? `<div class="poster-gradient" style="display:none;${posterGradientStyle(movie.title)}"><span class="poster-initial">${posterInitial(movie.title)}</span></div>`

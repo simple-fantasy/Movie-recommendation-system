@@ -20,13 +20,6 @@ function renderStats(stats) {
   }
 }
 
-function renderStars(rating) {
-  if (!rating) return '';
-  const full = Math.floor(rating);
-  const half = rating - full >= 0.3 ? 1 : 0;
-  return '★'.repeat(full) + (half ? '☆' : '') + '★'.repeat(5 - full - half).replace(/★/g, '<span style="color:#475569;">★</span>');
-}
-
 async function loadRatings() {
   const list = document.getElementById('ratings-list');
   if (!list) return;
@@ -92,41 +85,16 @@ async function loadRatings() {
   }
 }
 
-function setAuthUI(loggedIn, username, isAdmin) {
-  const authStatus = document.getElementById('authStatus');
-  const btnLogin = document.getElementById('btnLoginPage');
-  const btnLogout = document.getElementById('btnLogout');
-  const adminNav = document.getElementById('adminNavItem');
-  if (authStatus) authStatus.textContent = loggedIn ? '已登录：' + username : '未登录';
-  if (btnLogin) btnLogin.style.display = loggedIn ? 'none' : 'inline-block';
-  if (btnLogout) btnLogout.style.display = loggedIn ? 'inline-block' : 'none';
-  if (adminNav) adminNav.style.display = loggedIn && isAdmin ? 'block' : 'none';
-}
-
+// 认证由 base.html 内联脚本统一处理，此处复用 window._authPromise
 async function initAuth() {
   try {
-    const data = await api('/api/me');
-    if (data.authenticated) {
-      setAuthUI(true, data.username, data.is_admin);
+    const data = window._authPromise ? await window._authPromise : await api('/api/me');
+    if (data && data.authenticated) {
       loadRatings();
-    } else {
-      setAuthUI(false, '');
     }
   } catch (_err) {
-    setAuthUI(false, '');
+    // 未登录时不显示错误，由 base.html 处理 UI
   }
-}
-
-const btnLogout = document.getElementById('btnLogout');
-if (btnLogout) {
-  btnLogout.onclick = async () => {
-    try {
-      await api('/api/auth/logout', { method: 'POST', body: '{}' });
-      window.location.reload();
-    } catch (err) {
-      alert('退出失败：' + err.message);
-    }
-  };
 }
 
 const btnRefresh = document.getElementById('btnRefresh');

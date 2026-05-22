@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const data = await api('/api/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ username, password }),
+          body: { username, password },
         });
         showMessage(`🎉 登录成功！欢迎 ${data.username}`, 'success');
         setTimeout(() => {
@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const data = await api('/api/auth/register', {
           method: 'POST',
-          body: JSON.stringify({ username, password }),
+          body: { username, password },
         });
         showMessage(`🎉 注册成功！欢迎 ${data.username}，请登录`, 'success');
         setTimeout(() => {

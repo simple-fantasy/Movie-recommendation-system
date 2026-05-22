@@ -111,9 +111,9 @@ def evaluate():
                 # Sample candidate pool of 2000 unseen items (include test item)
                 all_items = set(sims.keys())
                 unseen = list(all_items - seen - {test_mid})
-                rng.shuffle(np.array(unseen, dtype=np.int64))
+                rng.shuffle(unseen)
                 pool = [test_mid] + unseen[:1999]
-                rng.shuffle(np.array(pool, dtype=np.int64))
+                rng.shuffle(pool)
                 ranked = ncf_engine.rank(uid, pool.tolist() if isinstance(pool, np.ndarray) else pool, top_k=args.k)
                 ncf_recs = [mid for mid, _ in ranked]
 

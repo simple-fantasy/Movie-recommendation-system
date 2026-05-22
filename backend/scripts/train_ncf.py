@@ -1,3 +1,27 @@
+"""
+NCF (Neural Collaborative Filtering) 模型训练脚本。
+
+使用 GMF (Generalized Matrix Factorization) 架构:
+- 用户/物品各自一个 Embedding 向量
+- 拼接后通过 3 层 MLP (emb*2 → hidden → hidden/2 → 1)
+- Sigmoid 输出 0-1 的匹配概率
+- Binary Cross-Entropy 损失函数
+
+训练流程:
+1. 从数据库加载评分数据，构建用户/物品索引映射
+2. Leave-one-last-out 验证集划分（每个用户最后一次评分作为测试）
+3. 负采样训练（每正样本采样 neg_ratio 个负样本）
+4. 每个 epoch 后在验证集上计算 HR@K 和 NDCG@K
+5. 早停机制（NDCG@K 不再提升时停止）
+
+输出:
+- backend/artifacts/ncf.pt      训练好的模型权重
+- backend/artifacts/ncf_meta.json 用户/物品映射元数据
+
+用法:
+    python -m backend.scripts.train_ncf --epochs 10 --batch-size 4096 --hidden-dim 128 --device cpu
+"""
+
 from __future__ import annotations
 
 import argparse

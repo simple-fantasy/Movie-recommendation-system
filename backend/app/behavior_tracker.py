@@ -3,18 +3,54 @@
 提供装饰器和工具函数来记录用户行为
 """
 
+import atexit
 import functools
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+
 from flask import request, session, current_app
 from flask_login import current_user
-from datetime import datetime
+
 from .models import UserBehavior, db
+
+# 模块级线程池，避免每次行为记录都创建新线程
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="behavior-")
+
+# 存储 Flask 应用引用，供 worker 线程创建应用上下文
+_app = None
+
+# 敏感表单字段名（不会被记录到 behavior 数据库）
+_SENSITIVE_FORM_FIELDS = frozenset({
+    'password', 'current_password', 'new_password', 'confirm_password',
+    'token', 'secret', 'csrf_token', 'answer', 'security_answer',
+    'old_password', 'password_confirm',
+})
+
+
+def init_behavior_tracker(app):
+    """初始化行为追踪模块，存储应用引用供 worker 线程使用。"""
+    global _app
+    _app = app
+
+
+def _shutdown_executor():
+    """关闭线程池（注册到 atexit）。"""
+    _executor.shutdown(wait=True)
+
+
+atexit.register(_shutdown_executor)
+
+
+def _utcnow():
+    """返回 naive UTC datetime，兼容 SQLite。"""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def track_behavior(action_type, target_type=None, target_id=None, metadata=None):
     """
     行为追踪装饰器
-    
+
     Args:
         action_type (str): 行为类型，如 'view', 'rate', 'search', 'click'
         target_type (str): 目标类型，如 'movie', 'person', 'genre'
@@ -26,17 +62,23 @@ def track_behavior(action_type, target_type=None, target_id=None, metadata=None)
         def decorated_function(*args, **kwargs):
             # 执行原函数
             result = f(*args, **kwargs)
-            
+
             # 异步记录行为（不阻塞主流程）
             try:
                 record_behavior_async(action_type, target_type, target_id, metadata)
-            except Exception as e:
-                # 记录失败不影响主功能
-                current_app.logger.debug(f"Behavior tracking failed: {e}")
-            
+            except Exception:
+                pass  # 记录失败不影响主功能
+
             return result
         return decorated_function
     return decorator
+
+
+def _filter_form_data(form_dict):
+    """过滤敏感字段，返回安全的 form_data 副本。"""
+    if not form_dict:
+        return {}
+    return {k: v for k, v in form_dict.items() if k not in _SENSITIVE_FORM_FIELDS}
 
 
 def record_behavior_async(action_type, target_type=None, target_id=None, metadata=None):
@@ -44,60 +86,65 @@ def record_behavior_async(action_type, target_type=None, target_id=None, metadat
     # 检查是否启用行为追踪
     if not current_app.config.get('ENABLE_BEHAVIOR_TRACKING', True):
         return
-    
+
     # 只记录已登录用户的行为
     if not current_user.is_authenticated:
         return
-    
+
     try:
         # 获取会话ID
         session_id = session.get('session_id')
         if not session_id:
             session_id = str(uuid.uuid4())
             session['session_id'] = session_id
-        
+
         # 准备元数据
         behavior_extra_data = metadata or {}
-        
-        # 添加请求信息
+
+        # 添加请求信息（过滤敏感字段）
         if request:
             behavior_extra_data.update({
                 'method': request.method,
                 'endpoint': request.endpoint,
                 'args': dict(request.args),
-                'form_data': dict(request.form) if request.form else {}
+                'form_data': _filter_form_data(dict(request.form)) if request.form else {}
             })
-        
-        # 创建行为记录
-        behavior = UserBehavior(
-            user_id=current_user.id,
-            action_type=action_type,
-            target_type=target_type,
-            target_id=target_id,
-            extra_data=behavior_extra_data,
-            ip_address=request.remote_addr if request else None,
-            user_agent=request.headers.get('User-Agent', '')[:500] if request else None,
-            session_id=session_id,
-            referrer=request.referrer if request else None
-        )
-        
-        # 异步保存到数据库
-        from threading import Thread
-        
-        def save_behavior():
-            try:
-                db.session.add(behavior)
-                db.session.commit()
-            except Exception as e:
-                db.session.rollback()
-                current_app.logger.debug(f"Failed to save behavior: {e}")
-        
-        thread = Thread(target=save_behavior)
-        thread.daemon = True
-        thread.start()
-        
-    except Exception as e:
-        current_app.logger.debug(f"Behavior tracking error: {e}")
+
+        # 收集行为数据（dict 而非 ORM 对象，跨线程安全）
+        behavior_data = {
+            'user_id': current_user.id,
+            'action_type': action_type,
+            'target_type': target_type,
+            'target_id': target_id,
+            'extra_data': behavior_extra_data,
+            'ip_address': request.remote_addr if request else None,
+            'user_agent': (request.headers.get('User-Agent', '')[:500] if request else None),
+            'session_id': session_id,
+            'referrer': request.referrer if request else None,
+        }
+
+        _executor.submit(_save_behavior, behavior_data)
+
+    except Exception:
+        pass  # 记录失败不影响主功能
+
+
+def _save_behavior(behavior_data):
+    """在 worker 线程中创建并保存行为记录（拥有独立的 db.session）。"""
+    global _app
+    if _app is None:
+        return
+
+    try:
+        with _app.app_context():
+            behavior = UserBehavior(**behavior_data)
+            db.session.add(behavior)
+            db.session.commit()
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
 
 
 def track_search_behavior(query, filters=None, results_count=0):
@@ -106,9 +153,9 @@ def track_search_behavior(query, filters=None, results_count=0):
         'query': query,
         'filters': filters or {},
         'results_count': results_count,
-        'search_timestamp': datetime.utcnow().isoformat()
+        'search_timestamp': _utcnow().isoformat()
     }
-    
+
     record_behavior_async('search', 'search_query', None, metadata)
 
 
@@ -116,9 +163,9 @@ def track_movie_view(movie_id, source='direct'):
     """记录电影查看行为"""
     metadata = {
         'source': source,
-        'view_timestamp': datetime.utcnow().isoformat()
+        'view_timestamp': _utcnow().isoformat()
     }
-    
+
     record_behavior_async('view', 'movie', movie_id, metadata)
 
 
@@ -128,9 +175,9 @@ def track_rating_behavior(movie_id, rating, previous_rating=None):
         'rating': rating,
         'previous_rating': previous_rating,
         'is_update': previous_rating is not None,
-        'rating_timestamp': datetime.utcnow().isoformat()
+        'rating_timestamp': _utcnow().isoformat()
     }
-    
+
     record_behavior_async('rate', 'movie', movie_id, metadata)
 
 
@@ -139,9 +186,9 @@ def track_recommendation_click(movie_id, strategy, position=None):
     metadata = {
         'strategy': strategy,
         'position': position,
-        'click_timestamp': datetime.utcnow().isoformat()
+        'click_timestamp': _utcnow().isoformat()
     }
-    
+
     record_behavior_async('click', 'movie', movie_id, metadata)
 
 
@@ -150,9 +197,9 @@ def track_page_view(page_name, additional_data=None):
     metadata = {
         'page': page_name,
         'additional_data': additional_data or {},
-        'view_timestamp': datetime.utcnow().isoformat()
+        'view_timestamp': _utcnow().isoformat()
     }
-    
+
     record_behavior_async('view', 'page', None, metadata)
 
 
@@ -161,9 +208,9 @@ def get_user_behavior_summary(user_id, days=30):
     try:
         from datetime import timedelta
         from sqlalchemy import func, and_
-        
-        start_date = datetime.utcnow() - timedelta(days=days)
-        
+
+        start_date = _utcnow() - timedelta(days=days)
+
         # 基础统计
         total_behaviors = UserBehavior.query.filter(
             and_(
@@ -171,7 +218,7 @@ def get_user_behavior_summary(user_id, days=30):
                 UserBehavior.created_at >= start_date
             )
         ).count()
-        
+
         # 按行为类型统计
         behavior_types = db.session.query(
             UserBehavior.action_type,
@@ -182,7 +229,7 @@ def get_user_behavior_summary(user_id, days=30):
                 UserBehavior.created_at >= start_date
             )
         ).group_by(UserBehavior.action_type).all()
-        
+
         # 按目标类型统计
         target_types = db.session.query(
             UserBehavior.target_type,
@@ -194,7 +241,7 @@ def get_user_behavior_summary(user_id, days=30):
                 UserBehavior.target_type.isnot(None)
             )
         ).group_by(UserBehavior.target_type).all()
-        
+
         # 活跃天数
         active_days = db.session.query(
             func.count(func.distinct(func.date(UserBehavior.created_at)))
@@ -204,7 +251,7 @@ def get_user_behavior_summary(user_id, days=30):
                 UserBehavior.created_at >= start_date
             )
         ).scalar()
-        
+
         return {
             'total_behaviors': total_behaviors,
             'behavior_types': {bt: count for bt, count in behavior_types},
@@ -213,7 +260,7 @@ def get_user_behavior_summary(user_id, days=30):
             'period_days': days,
             'avg_daily_behaviors': total_behaviors / max(active_days, 1)
         }
-        
+
     except Exception as e:
         current_app.logger.error(f"Failed to get user behavior summary: {e}")
         return {
@@ -231,9 +278,9 @@ def get_behavior_analytics(days=7):
     try:
         from datetime import timedelta
         from sqlalchemy import func, and_
-        
-        start_date = datetime.utcnow() - timedelta(days=days)
-        
+
+        start_date = _utcnow() - timedelta(days=days)
+
         # 每日行为统计
         daily_stats = db.session.query(
             func.date(UserBehavior.created_at).label('date'),
@@ -243,7 +290,7 @@ def get_behavior_analytics(days=7):
         ).group_by(
             func.date(UserBehavior.created_at)
         ).order_by('date').all()
-        
+
         # 热门行为类型
         popular_actions = db.session.query(
             UserBehavior.action_type,
@@ -253,14 +300,14 @@ def get_behavior_analytics(days=7):
         ).group_by(UserBehavior.action_type).order_by(
             func.count(UserBehavior.id).desc()
         ).limit(10).all()
-        
+
         # 活跃用户统计
         active_users = db.session.query(
             func.count(func.distinct(UserBehavior.user_id))
         ).filter(
             UserBehavior.created_at >= start_date
         ).scalar()
-        
+
         # 热门目标（电影、页面等）
         popular_targets = db.session.query(
             UserBehavior.target_type,
@@ -278,7 +325,7 @@ def get_behavior_analytics(days=7):
         ).order_by(
             func.count(UserBehavior.id).desc()
         ).limit(20).all()
-        
+
         return {
             'daily_stats': [(date.isoformat(), count) for date, count in daily_stats],
             'popular_actions': [(action, count) for action, count in popular_actions],
@@ -293,7 +340,7 @@ def get_behavior_analytics(days=7):
             ],
             'period_days': days
         }
-        
+
     except Exception as e:
         current_app.logger.error(f"Failed to get behavior analytics: {e}")
         return {
@@ -309,18 +356,18 @@ def cleanup_old_behaviors(days=90):
     """清理旧的行为数据"""
     try:
         from datetime import timedelta
-        
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
+
+        cutoff_date = _utcnow() - timedelta(days=days)
+
         deleted_count = UserBehavior.query.filter(
             UserBehavior.created_at < cutoff_date
         ).delete()
-        
+
         db.session.commit()
-        
+
         current_app.logger.info(f"Cleaned up {deleted_count} old behavior records")
         return deleted_count
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Failed to cleanup old behaviors: {e}")

@@ -479,12 +479,12 @@
           return;
         }
         try {
-          for (const [movieId, rating] of entries) {
-            await api('/api/ratings', {
+          await Promise.all(entries.map(([movieId, rating]) =>
+            api('/api/ratings', {
               method: 'POST',
               body: { movie_id: Number(movieId), rating },
-            });
-          }
+            })
+          ));
           showToast(`已提交 ${entries.length} 条评分！正在刷新推荐...`, 'success');
           this.showColdStartWizard = false;
           this.coldStartMovies = [];

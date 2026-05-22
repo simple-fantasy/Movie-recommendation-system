@@ -47,7 +47,7 @@ Vue.createApp({
             self.sqSaving = true;
             api('/api/user/security-question', {
                 method: 'POST',
-                body: JSON.stringify({ question: question, answer: answer })
+                body: { question: question, answer: answer }
             }).then(function (res) {
                 if (res.success) {
                     self.showToast('密保问题设置成功', 'success');
@@ -82,10 +82,10 @@ Vue.createApp({
             self.cpSaving = true;
             api('/api/user/change-password', {
                 method: 'POST',
-                body: JSON.stringify({
+                body: {
                     current_password: self.cpCurrent,
                     new_password: self.cpNew
-                })
+                }
             }).then(function (res) {
                 if (res.success) {
                     self.showToast('密码修改成功', 'success');

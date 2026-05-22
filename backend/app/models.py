@@ -1,3 +1,20 @@
+"""
+数据模型定义。
+
+包含 11 个 SQLAlchemy ORM 模型:
+- User:             用户账户、认证、权限
+- Movie:            电影元数据（标题、类型、海报等）
+- Rating:           用户评分（1-5 分，user/movie 唯一约束）
+- MovieSimilarity:  ItemCF 预计算的电影相似度（movie_id → similar_movie_id + score）
+- RecommendationFeedback: 推荐反馈（喜欢/不喜欢/看过）
+- Review:           用户评论（含审核状态）
+- ReviewLike:       评论点赞
+- UserCollection:   用户收藏（收藏/想看/看过）
+- WatchLink:        观影链接（平台、画质、审核状态）
+- UserBehavior:     用户行为追踪日志
+- UserProfile:      用户画像（偏好分析、统计指标）
+"""
+
 from __future__ import annotations
 
 import json
@@ -7,9 +24,16 @@ from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.app import db, login_manager
+from backend.app.utils import utcnow
 
+
+# ═══════════════════════════════════════════════════════
+# User — 用户账户模型
+# ═══════════════════════════════════════════════════════
 
 class User(db.Model, UserMixin):
+    """用户模型，支持普通用户和管理员两种角色。"""
+
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -17,13 +41,13 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(256), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=True)
     avatar = db.Column(db.String(500), nullable=True)
-    is_admin = db.Column(db.Boolean, default=False, index=True)
-    is_active = db.Column(db.Boolean, default=True)
+    is_admin = db.Column(db.Boolean, default=False, index=True)     # 管理员标志
+    is_active = db.Column(db.Boolean, default=True)                 # 账户启用标志（禁用后无法登录）
     last_login = db.Column(db.DateTime)
     login_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
-    security_question = db.Column(db.String(255), nullable=True)
-    security_answer_hash = db.Column(db.String(256), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
+    security_question = db.Column(db.String(255), nullable=True)    # 密保问题（用于找回密码）
+    security_answer_hash = db.Column(db.String(256), nullable=True)  # 密保答案哈希
 
     ratings = db.relationship("Rating", back_populates="user", cascade="all, delete-orphan")
     reviews = db.relationship("Review", back_populates="user", cascade="all, delete-orphan")
@@ -53,7 +77,7 @@ class User(db.Model, UserMixin):
 
     def update_login_stats(self):
         """更新登录统计"""
-        self.last_login = datetime.utcnow()
+        self.last_login = utcnow()
         self.login_count += 1
 
     def to_dict(self) -> dict:
@@ -75,7 +99,13 @@ def load_user(user_id: str):
     return db.session.get(User, int(user_id))
 
 
+# ═══════════════════════════════════════════════════════
+# Movie — 电影元数据模型
+# ═══════════════════════════════════════════════════════
+
 class Movie(db.Model):
+    """电影模型，存储完整的元数据和统计数据。"""
+
     __tablename__ = "movies"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -104,8 +134,8 @@ class Movie(db.Model):
     rating_count = db.Column(db.Integer, default=0)
     avg_rating = db.Column(db.Float, default=0.0, index=True)
 
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow, index=True)
 
     ratings = db.relationship("Rating", back_populates="movie", cascade="all, delete-orphan")
     collections = db.relationship("UserCollection", back_populates="movie", cascade="all, delete-orphan")
@@ -145,7 +175,13 @@ class Movie(db.Model):
         }
 
 
+# ═══════════════════════════════════════════════════════
+# Rating — 用户评分
+# ═══════════════════════════════════════════════════════
+
 class Rating(db.Model):
+    """用户评分模型。每个用户对每部电影只允许一条评分（UniqueConstraint）。"""
+
     __tablename__ = "ratings"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -175,11 +211,13 @@ class Rating(db.Model):
 
 
 class MovieSimilarity(db.Model):
+    """ItemCF 预计算相似度矩阵。存储 (movie_id, similar_movie_id, cosine_score) 三元组。"""
+
     __tablename__ = "movie_similarity"
 
     id = db.Column(db.Integer, primary_key=True)
-    movie_id = db.Column(db.Integer, db.ForeignKey("movies.id"), nullable=False, index=True)
-    similar_movie_id = db.Column(db.Integer, db.ForeignKey("movies.id"), nullable=False, index=True)
+    movie_id = db.Column(db.Integer, db.ForeignKey("movies.id", ondelete="CASCADE"), nullable=False, index=True)
+    similar_movie_id = db.Column(db.Integer, db.ForeignKey("movies.id", ondelete="CASCADE"), nullable=False, index=True)
     score = db.Column(db.Float, nullable=False)
 
     __table_args__ = (
@@ -189,6 +227,8 @@ class MovieSimilarity(db.Model):
 
 
 class RecommendationFeedback(db.Model):
+    """推荐反馈模型。记录用户对推荐结果的反馈（like/dislike/watched），用于评估推荐质量。"""
+
     __tablename__ = "recommendation_feedback"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -196,12 +236,14 @@ class RecommendationFeedback(db.Model):
     movie_id = db.Column(db.Integer, db.ForeignKey("movies.id"), nullable=False, index=True)
     feedback = db.Column(db.String(16), nullable=False)
     context = db.Column(db.String(64), nullable=False, default="")
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utcnow, index=True)
 
     __table_args__ = (db.UniqueConstraint("user_id", "movie_id", "context", name="uq_feedback_user_movie_ctx"),)
 
 
 class Review(db.Model):
+    """用户评论模型。评论需经过审核（pending → approved/rejected）。"""
+
     __tablename__ = "reviews"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -212,8 +254,8 @@ class Review(db.Model):
     likes_count = db.Column(db.Integer, default=0)
     is_featured = db.Column(db.Boolean, default=False)
     status = db.Column(db.Enum('approved', 'rejected', 'pending'), default='approved')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     user = db.relationship("User", back_populates="reviews")
     movie = db.relationship("Movie", back_populates="reviews")
@@ -240,7 +282,7 @@ class ReviewLike(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
     review_id = db.Column(db.Integer, db.ForeignKey("reviews.id"), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'review_id'),)
 
@@ -249,6 +291,8 @@ class ReviewLike(db.Model):
 
 
 class UserCollection(db.Model):
+    """用户收藏模型。支持多种类型: favorite（收藏）、watchlist（想看）、watched（看过）。"""
+
     __tablename__ = "user_collections"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -257,8 +301,8 @@ class UserCollection(db.Model):
     collection_type = db.Column(db.String(20), default='favorite')
     notes = db.Column(db.Text)
     rating = db.Column(db.Float)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     __table_args__ = (db.UniqueConstraint('user_id', 'movie_id', 'collection_type'),)
 
@@ -279,6 +323,8 @@ class UserCollection(db.Model):
 
 
 class WatchLink(db.Model):
+    """观影链接模型。用户提交的平台链接（B站、YouTube等），经审核后展示在电影详情页。"""
+
     __tablename__ = "watch_links"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -291,8 +337,8 @@ class WatchLink(db.Model):
     is_official = db.Column(db.Boolean, default=False)
     status = db.Column(db.Enum('active', 'pending', 'inactive', 'reported'), default='pending')
     report_count = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     movie = db.relationship("Movie", back_populates="watch_links")
     user = db.relationship("User")
@@ -312,10 +358,12 @@ class WatchLink(db.Model):
 
 
 class UserBehavior(db.Model):
+    """用户行为追踪日志。记录搜索、浏览、评分、推荐点击等行为，用于分析和优化。"""
+
     __tablename__ = "user_behaviors"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     action_type = db.Column(db.String(50), nullable=False)
     target_type = db.Column(db.String(20))
     target_id = db.Column(db.Integer)
@@ -324,7 +372,7 @@ class UserBehavior(db.Model):
     user_agent = db.Column(db.String(500))
     session_id = db.Column(db.String(100))
     referrer = db.Column(db.String(500))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
     user = db.relationship("User", backref="behaviors")
 
@@ -341,6 +389,8 @@ class UserBehavior(db.Model):
 
 
 class UserProfile(db.Model):
+    """用户画像模型。存储偏好分析结果（偏好类型、年代、演员、导演）和统计指标（评分方差、熵、多样性）。"""
+
     __tablename__ = "user_profiles"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -362,7 +412,7 @@ class UserProfile(db.Model):
     user_type = db.Column(db.String(20))
     activity_level = db.Column(db.String(20))
 
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     user = db.relationship("User", backref="profile")
 

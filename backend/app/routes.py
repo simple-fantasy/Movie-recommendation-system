@@ -14,21 +14,10 @@ from backend.app.models import (Movie, MovieSimilarity, Rating, RecommendationFe
                                UserCollection, WatchLink, UserProfile)
 from backend.app.ncf_engine import ncf_engine
 from backend.app.services import ProfileService
+from backend.app.utils import safe_isoformat, parse_genres
 
 
 bp = Blueprint("main", __name__)
-
-
-def _safe_isoformat(value, default=None):
-    """安全将日期转为 ISO 字符串，兼容 datetime 对象和无效日期字符串"""
-    if value is None:
-        return default
-    if isinstance(value, datetime):
-        return value.isoformat()
-    s = str(value)
-    if s.startswith('0000') or s.startswith('00'):
-        return default
-    return s[:19] if len(s) >= 10 else s
 
 
 @bp.get("/")
@@ -66,12 +55,24 @@ def submit_feedback():
             context=context,
         )
         db.session.add(existing)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            # 并发插入冲突，退化为更新
+            existing = RecommendationFeedback.query.filter_by(
+                user_id=current_user.id, movie_id=movie.id, context=context
+            ).first()
+            if existing:
+                existing.feedback = feedback
+                existing.created_at = datetime.utcnow()
+                db.session.commit()
+        return jsonify({"ok": True})
     else:
         existing.feedback = feedback
         existing.created_at = datetime.utcnow()
-
-    db.session.commit()
-    return jsonify({"ok": True})
+        db.session.commit()
+        return jsonify({"ok": True})
 
 
 @bp.get("/api/my/persona")
@@ -243,6 +244,34 @@ def ncf_status():
     return jsonify(ncf_engine.get_status())
 
 
+@bp.post("/api/admin/ncf/reload")
+@login_required
+def ncf_reload():
+    """
+    管理端 NCF 模型热重载。
+
+    允许管理员在训练新模型后不重启服务即可重新加载。
+    重载在后台线程中异步执行，立即返回当前状态。
+    """
+    if not current_user.is_admin:
+        return jsonify({"error": "需要管理员权限"}), 403
+
+    if ncf_engine.is_loading():
+        return jsonify({"status": "already_loading", "message": "模型正在加载中，请稍候"}), 202
+
+    # 后台线程异步重载，不阻塞 HTTP 响应
+    import threading
+    def _reload():
+        ncf_engine.reload()
+    threading.Thread(target=_reload, daemon=True).start()
+
+    return jsonify({
+        "status": "reload_started",
+        "message": "模型重载已启动，请通过 /api/ncf/status 查看进度",
+        "previous_state": ncf_engine.get_status(),
+    })
+
+
 @bp.post("/api/auth/register")
 def register():
     data = request.get_json(force=True)
@@ -254,6 +283,8 @@ def register():
 
     if len(username) > 64:
         return jsonify({"error": "用户名不能超过64个字符"}), 400
+    if not re.match(r'^[\w一-鿿぀-ゟ゠-ヿ가-힯.-]{1,64}$', username):
+        return jsonify({"error": "用户名包含非法字符（仅支持字母、数字、中文、日韩文、下划线、点和连字符）"}), 400
     if len(password) < 8:
         return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
     if not re.search(r'[a-zA-Z]', password) or not re.search(r'\d', password):
@@ -333,8 +364,10 @@ def forgot_password_reset():
 
     if not username or not answer or not new_password:
         return jsonify({"error": "请填写所有必填字段"}), 400
-    if len(new_password) < 6:
-        return jsonify({"error": "新密码至少需要6个字符"}), 400
+    if len(new_password) < 8:
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
+    if not re.search(r'[a-zA-Z]', new_password) or not re.search(r'\d', new_password):
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
 
     user = User.query.filter_by(username=username).first()
     if not user or not user.security_answer_hash:
@@ -378,8 +411,10 @@ def change_password():
 
     if not current_pw or not new_pw:
         return jsonify({"error": "请填写当前密码和新密码"}), 400
-    if len(new_pw) < 6:
-        return jsonify({"error": "新密码至少需要6个字符"}), 400
+    if len(new_pw) < 8:
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
+    if not re.search(r'[a-zA-Z]', new_pw) or not re.search(r'\d', new_pw):
+        return jsonify({"error": "密码至少需要8个字符，包含字母和数字"}), 400
     if not current_user.check_password(current_pw):
         return jsonify({"error": "当前密码不正确"}), 401
 
@@ -399,7 +434,7 @@ def me():
         "is_admin": current_user.is_admin,
         "is_active": current_user.is_active,
         "login_count": current_user.login_count,
-        "last_login": _safe_isoformat(current_user.last_login),
+        "last_login": safe_isoformat(current_user.last_login),
         "security_question_set": bool(current_user.security_question and current_user.security_answer_hash)
     })
 
@@ -424,7 +459,7 @@ def my_ratings():
             "genres": (m.genres or ""),
             "poster_url": m.poster_url,
             "rating": float(r.rating),
-            "timestamp": _safe_isoformat(r.timestamp),
+            "timestamp": safe_isoformat(r.timestamp),
         }
         for r, m in rows
     ]
@@ -462,7 +497,9 @@ def list_movies():
 
     query = Movie.query
     if q:
-        query = query.filter(Movie.title.ilike(f"%{q}%"))
+        # 转义 LIKE 通配符防止 DoS（% 匹配任意字符串，_ 匹配单字符）
+        escaped_q = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        query = query.filter(Movie.title.ilike(f"%{escaped_q}%"))
 
     movies = query.order_by(Movie.id.asc()).limit(limit).all()
     return jsonify(
@@ -660,7 +697,12 @@ def rate_movie():
     if movie_id is None or rating_value is None:
         return jsonify({"error": "movie_id and rating required"}), 400
 
-    movie = db.session.get(Movie, int(movie_id))
+    try:
+        movie_id = int(movie_id)
+    except (ValueError, TypeError):
+        return jsonify({"error": "电影ID必须是数字"}), 400
+
+    movie = db.session.get(Movie, movie_id)
     if movie is None:
         return jsonify({"error": "movie not found"}), 404
 
@@ -676,11 +718,19 @@ def rate_movie():
     if existing is None:
         existing = Rating(user_id=current_user.id, movie_id=movie.id, rating=rating_value, timestamp=datetime.utcnow())
         db.session.add(existing)
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            existing = Rating.query.filter_by(user_id=current_user.id, movie_id=movie.id).first()
+            if existing:
+                existing.rating = rating_value
+                existing.timestamp = datetime.utcnow()
+                db.session.commit()
     else:
         existing.rating = rating_value
         existing.timestamp = datetime.utcnow()
-
-    db.session.commit()
+        db.session.commit()
     _update_movie_stats(movie.id)
     return jsonify({"ok": True})
 
@@ -1570,17 +1620,19 @@ def like_review(review_id):
     if existing_like:
         # 取消点赞
         db.session.delete(existing_like)
-        review.likes_count -= 1
+        db.session.commit()
         liked = False
     else:
         # 点赞
         like = ReviewLike(user_id=current_user.id, review_id=review_id)
         db.session.add(like)
-        review.likes_count += 1
+        db.session.commit()
         liked = True
-    
+
+    # 从数据库源重新计算 likes_count（避免并发竞态）
+    review.likes_count = ReviewLike.query.filter_by(review_id=review_id).count()
     db.session.commit()
-    
+
     return jsonify({
         'success': True,
         'liked': liked,
@@ -1700,7 +1752,7 @@ def add_collection():
         if rating < 0.5 or rating > 5:
             return jsonify({'error': '评分必须在0.5-5之间'}), 400
     
-    # 创建收藏
+    # 创建收藏（处理并发插入）
     collection = UserCollection(
         user_id=current_user.id,
         movie_id=movie_id,
@@ -1708,10 +1760,14 @@ def add_collection():
         notes=notes,
         rating=rating
     )
-    
+
     db.session.add(collection)
-    db.session.commit()
-    
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': '该电影已在收藏列表中'}), 400
+
     return jsonify({
         'success': True,
         'message': '收藏成功',
@@ -2042,7 +2098,7 @@ def export_user_data():
                 'id': current_user.id,
                 'username': current_user.username,
                 'email': current_user.email,
-                'created_at': _safe_isoformat(current_user.created_at),
+                'created_at': safe_isoformat(current_user.created_at),
                 'is_active': current_user.is_active
             },
             'statistics': {
@@ -2075,7 +2131,7 @@ def export_user_data():
             return response
             
     except Exception as e:
-        return jsonify({"error": "数据导出失败", "details": str(e)}), 500
+        return jsonify({"error": "数据导出失败"}), 500
 
 
 @bp.get("/api/export/system-stats")
@@ -2106,7 +2162,7 @@ def export_system_stats():
             return jsonify(stats)
             
     except Exception as e:
-        return jsonify({"error": "系统统计导出失败", "details": str(e)}), 500
+        return jsonify({"error": "系统统计导出失败"}), 500
 
 
 @bp.get("/api/export/movie-data")
@@ -2160,7 +2216,7 @@ def export_movie_data():
             return jsonify(export_data)
             
     except Exception as e:
-        return jsonify({"error": "电影数据导出失败", "details": str(e)}), 500
+        return jsonify({"error": "电影数据导出失败"}), 500
 
 
 @bp.get("/api/export/backup")
@@ -2199,7 +2255,7 @@ def export_system_backup():
         return response
 
     except Exception as e:
-        return jsonify({"error": "系统备份失败", "details": str(e)}), 500
+        return jsonify({"error": "系统备份失败"}), 500
 
 
 # ==================== 增强统计API ====================
@@ -2282,7 +2338,7 @@ def enhanced_overview_stats():
         
     except Exception as e:
         # 错误处理，确保系统稳定
-        return jsonify({"error": "统计服务暂时不可用", "details": str(e)}), 500
+        return jsonify({"error": "统计服务暂时不可用"}), 500
 
 
 @bp.get("/api/enhanced-stats/user-segments")
@@ -2353,7 +2409,7 @@ def user_segment_analysis():
         })
 
     except Exception as e:
-        return jsonify({"error": "用户分群分析失败", "details": str(e)}), 500
+        return jsonify({"error": "用户分群分析失败"}), 500
 
 
 @bp.get("/api/enhanced-stats/activity-heatmap")
@@ -2400,7 +2456,7 @@ def activity_heatmap_data():
         })
         
     except Exception as e:
-        return jsonify({"error": "活跃度热力图数据获取失败", "details": str(e)}), 500
+        return jsonify({"error": "活跃度热力图数据获取失败"}), 500
 
 
 @bp.get("/api/enhanced-stats/genre-trends")
@@ -2452,7 +2508,7 @@ def genre_trends_analysis():
         })
         
     except Exception as e:
-        return jsonify({"error": "类型趋势分析失败", "details": str(e)}), 500
+        return jsonify({"error": "类型趋势分析失败"}), 500
 
 
 @bp.get("/api/enhanced-stats/system-health")
@@ -2511,7 +2567,7 @@ def system_health_metrics():
         return jsonify(health_metrics)
         
     except Exception as e:
-        return jsonify({"error": "系统健康检查失败", "details": str(e)}), 500
+        return jsonify({"error": "系统健康检查失败"}), 500
 
 
 # ==================== 统一增强数据看板 API ====================
@@ -2796,8 +2852,7 @@ def advanced_search():
         return jsonify({
             "error": "搜索服务暂时不可用",
             "suggestions": [],
-            "results": [],
-            "details": str(e)
+            "results": []
         }), 500
 
 
@@ -2869,7 +2924,7 @@ def search_history():
         })
         
     except Exception as e:
-        return jsonify({"error": "获取搜索历史失败", "details": str(e)}), 500
+        return jsonify({"error": "获取搜索历史失败"}), 500
 
 
 
@@ -3031,14 +3086,16 @@ def export_to_csv(data, filename):
         output = io.StringIO()
         
         if 'ratings' in data:
-            # 导出评分数据
             writer = csv.writer(output)
             writer.writerow(['电影ID', '电影标题', '评分', '评分时间'])
-            
+
             for rating in data['ratings']:
+                movie_title = ''
+                if isinstance(rating.get('movie'), dict):
+                    movie_title = rating['movie'].get('title', '')
                 writer.writerow([
                     rating.get('movie_id'),
-                    rating.get('movie_title'),
+                    movie_title,
                     rating.get('rating'),
                     rating.get('timestamp')
                 ])
@@ -3053,7 +3110,7 @@ def export_to_csv(data, filename):
         return response
         
     except Exception as e:
-        return jsonify({"error": "CSV导出失败", "details": str(e)}), 500
+        return jsonify({"error": "CSV导出失败"}), 500
 
 
 def export_system_stats_to_csv(stats):
@@ -3081,7 +3138,7 @@ def export_system_stats_to_csv(stats):
         return response
         
     except Exception as e:
-        return jsonify({"error": "系统统计CSV导出失败", "details": str(e)}), 500
+        return jsonify({"error": "系统统计CSV导出失败"}), 500
 
 
 def export_movies_to_csv(movie_data):
@@ -3120,7 +3177,7 @@ def export_movies_to_csv(movie_data):
         return response
         
     except Exception as e:
-        return jsonify({"error": "电影数据CSV导出失败", "details": str(e)}), 500
+        return jsonify({"error": "电影数据CSV导出失败"}), 500
 
 
 # ==================== 用户画像系统API ====================

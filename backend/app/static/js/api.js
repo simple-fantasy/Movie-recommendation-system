@@ -1,3 +1,17 @@
+/**
+ * CineMatch API 客户端。
+ *
+ * 基于 fetch() 封装的统一 HTTP 请求函数，提供:
+ * - GET 请求自动去重（并发相同 URL 共享同一个 Promise）
+ * - 自动 JSON 序列化/反序列化
+ * - 统一错误解析（JSON / HTML / 纯文本响应）
+ * - 自动检测未登录跳转
+ *
+ * 用法:
+ *   const data = await api('/api/movies?limit=10');
+ *   const result = await api('/api/ratings', { method: 'POST', body: { movie_id: 1, rating: 4.5 } });
+ */
+
 const _pendingRequests = new Map();
 
 async function api(path, options = {}) {

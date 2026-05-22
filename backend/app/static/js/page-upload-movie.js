@@ -67,7 +67,7 @@ Vue.createApp({
             self.submitting = true;
             api('/api/movies/submit', {
                 method: 'POST',
-                body: JSON.stringify(body)
+                body: body
             }).then(function (res) {
                 if (res.success) {
                     self.showToast(res.message, 'success');

@@ -420,7 +420,7 @@
 
     data() {
       return {
-        movieId: {{ movie_id }},
+        movieId: {{ movie_id | tojson }},
         movie: {},
         similar: [],
         reviews: [],

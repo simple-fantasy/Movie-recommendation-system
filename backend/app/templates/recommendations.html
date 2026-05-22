@@ -275,10 +275,12 @@
           class="btn d-inline-flex align-items-center gap-2 px-4 py-2"
           :class="currentStrategy === s.key ? 'btn-cinema' : 'btn-cinema-outline'"
           @click="switchStrategy(s.key)"
-          :disabled="!!retryTimer"
+          :disabled="!!retryTimer || (s.key === 'ncf' && !ncfStrategyAvailable)"
+          :title="s.key === 'ncf' && !ncfStrategyAvailable ? 'NCF 模型暂不可用' : ''"
         >
           <i :class="'ph ' + s.icon" style="font-size:1.1rem;"></i>
-          <span v-text="s.label"></span>
+          <span v-text="s.key === 'ncf' ? ncfStrategyLabel : s.label"></span>
+          <span v-if="s.key === 'ncf' && !ncfStrategyAvailable" class="badge bg-secondary ms-1" style="font-size:0.65rem;">离线</span>
         </button>
       </div>
 

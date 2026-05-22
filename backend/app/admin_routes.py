@@ -12,20 +12,9 @@ from sqlalchemy.orm import joinedload
 from backend.app import db, cache
 from backend.app.decorators import admin_required
 from backend.app.models import Movie, User, Review, ReviewLike, Rating
+from backend.app.utils import safe_isoformat
 from backend.services.tmdb_service import TMDBService
 from backend.services.douban_service import MockMovieService
-
-
-def _safe_isoformat(value, default=None):
-    """安全将日期转为 ISO 字符串，兼容 datetime 对象和字符串（如 '0000-00-00'）"""
-    if value is None:
-        return default
-    if isinstance(value, datetime):
-        return value.isoformat()
-    s = str(value)
-    if s.startswith('0000') or s.startswith('00'):
-        return default
-    return s[:19] if len(s) >= 10 else s
 
 # 创建管理员蓝图
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -69,7 +58,6 @@ def admin_login():
 @admin_bp.route('/')
 @login_required
 @admin_required
-@cache.cached(timeout=300)
 def dashboard():
     """管理员仪表板"""
     # 统计数据
@@ -280,7 +268,7 @@ def fetch_movie_metadata(movie_id):
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取失败: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': '获取失败，请稍后重试'}), 500
 
 
 @admin_bp.route('/movies/<int:movie_id>/delete', methods=['POST'])
@@ -554,7 +542,7 @@ def metadata_stats():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': '服务暂时不可用'}), 500
 
 
 @admin_bp.route('/api/movies-metadata')
@@ -613,7 +601,7 @@ def movies_metadata():
                 'director': movie.director,
                 'genres': movie.genres,
                 'poster_url': movie.poster_url,
-                'updated_at': _safe_isoformat(movie.updated_at)
+                'updated_at': safe_isoformat(movie.updated_at)
             })
         
         return jsonify({
@@ -629,7 +617,7 @@ def movies_metadata():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': '服务暂时不可用'}), 500
 
 
 # ==================== 权限管理系统 ====================
@@ -678,7 +666,7 @@ def permission_stats():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': '服务暂时不可用'}), 500
 
 
 @admin_bp.route('/api/users-permissions')
@@ -725,8 +713,8 @@ def users_permissions():
                 'is_admin': user.is_admin,
                 'is_active': user.is_active,
                 'avatar': user.avatar,
-                'last_login': _safe_isoformat(user.last_login),
-                'created_at': _safe_isoformat(user.created_at),
+                'last_login': safe_isoformat(user.last_login),
+                'created_at': safe_isoformat(user.created_at),
                 'permission_level': 'admin' if user.is_admin else 'user'  # 简化处理
             })
         
@@ -743,7 +731,7 @@ def users_permissions():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': '服务暂时不可用'}), 500
 
 
 # ==================== 评分审核系统 ====================
@@ -827,9 +815,6 @@ def ratings_stats():
     })
 
 
-    return redirect(url_for('admin.dashboard'))
-
-
 # ==================== 系统日志管理 ====================
 
 @admin_bp.route('/logs')
@@ -895,7 +880,7 @@ def get_logs():
         
     except Exception as e:
         return jsonify({
-            'error': str(e),
+            'error': '获取日志失败，请稍后重试',
             'logs': []
         }), 500
 
@@ -927,5 +912,5 @@ def clear_logs():
         
     except Exception as e:
         return jsonify({
-            'error': str(e)
+            'error': '日志文件操作失败，请稍后重试'
         }), 500

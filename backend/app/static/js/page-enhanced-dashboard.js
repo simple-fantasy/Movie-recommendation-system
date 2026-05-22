@@ -71,16 +71,6 @@
 
   // ── Helpers ───────────────────────────────────────
 
-  function getSegmentName(key) {
-    var names = {
-      highly_active: '高活跃用户', moderately_active: '中活跃用户',
-      low_active: '低活跃用户', dormant: '休眠用户',
-      generous_raters: '宽松评分者', critical_raters: '严格评分者',
-      balanced_raters: '平衡评分者'
-    };
-    return names[key] || key;
-  }
-
   function setSkelError(el, msg) {
     if (!el) return;
     el.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height:200px;"><span style="font-size:2rem;opacity:0.4;margin-bottom:0.5rem;">⚠️</span><span>' + msg + '</span></div>';
@@ -153,60 +143,7 @@
     }).join('');
   }
 
-  // ── Chart: user segments ──────────────────────────
-
-  function renderUserSegments(segData, rateData) {
-    var el1 = document.getElementById('user-segments-pie');
-    var el2 = document.getElementById('rating-preferences-pie');
-    if (!el1 && !el2) return;
-
-    var segColors = { highly_active: '#22c55e', moderately_active: '#60a5fa', low_active: '#f59e0b', dormant: '#94a3b8' };
-    var rateColors = { generous_raters: '#22c55e', critical_raters: '#ef4444', balanced_raters: '#60a5fa' };
-
-    if (el1 && segData && !segData.error) {
-      var c1 = echarts.init(el1);
-      c1.setOption({
-        backgroundColor: 'transparent',
-        tooltip: { trigger: 'item', formatter: '{b}: {c}% ({d}%)', backgroundColor: 'rgba(15,23,42,0.92)', borderColor: 'rgba(148,163,184,0.2)', textStyle: { color: '#f8fafc' } },
-        series: [{
-          type: 'pie', radius: ['40%', '70%'], center: ['50%', '55%'],
-          avoidLabelOverlap: false,
-          itemStyle: { borderRadius: 8, borderColor: '#1f1f1f', borderWidth: 2 },
-          label: { show: false },
-          emphasis: { label: { show: true, fontWeight: 'bold' } },
-          data: Object.entries(segData).map(function(e) {
-            return { name: getSegmentName(e[0]), value: e[1], itemStyle: { color: segColors[e[0]] || '#94a3b8' } };
-          })
-        }]
-      });
-      charts['user-segments-pie'] = c1;
-    } else if (el1) {
-      setSkelError(el1, '暂无分群数据');
-    }
-
-    if (el2 && rateData && !rateData.error) {
-      var c2 = echarts.init(el2);
-      c2.setOption({
-        backgroundColor: 'transparent',
-        tooltip: { trigger: 'item', formatter: '{b}: {c}% ({d}%)', backgroundColor: 'rgba(15,23,42,0.92)', borderColor: 'rgba(148,163,184,0.2)', textStyle: { color: '#f8fafc' } },
-        series: [{
-          type: 'pie', radius: ['40%', '70%'], center: ['50%', '55%'],
-          avoidLabelOverlap: false,
-          itemStyle: { borderRadius: 8, borderColor: '#1f1f1f', borderWidth: 2 },
-          label: { show: false },
-          emphasis: { label: { show: true, fontWeight: 'bold' } },
-          data: Object.entries(rateData).map(function(e) {
-            return { name: getSegmentName(e[0]), value: e[1], itemStyle: { color: rateColors[e[0]] || '#94a3b8' } };
-          })
-        }]
-      });
-      charts['rating-preferences-pie'] = c2;
-    } else if (el2) {
-      setSkelError(el2, '暂无偏好数据');
-    }
-  }
-
-  // ── Chart: activity heatmap ───────────────────────
+  // ── Main load ─────────────────────────────────────
 
   function renderActivityHeatmap(hmData) {
     var el = document.getElementById('activity-heatmap');
@@ -381,26 +318,23 @@
       // Step 2: Fetch overview + user-segments + system-health in PARALLEL
       return Promise.allSettled([
         fetchJSON('/api/enhanced-stats/overview'),
-        fetchJSON('/api/enhanced-stats/user-segments'),
         fetchJSON('/api/enhanced-stats/activity-heatmap'),
         fetchJSON('/api/enhanced-stats/system-health'),
       ]);
     }).then(function(results) {
       console.log('[EnhancedDashboard] All API calls completed. Results:',
         results.map(function(r, i) {
-          var names = ['overview','segments','heatmap','health'];
+          var names = ['overview','heatmap','health'];
           return names[i] + ': ' + r.status + (r.status === 'rejected' ? ' (' + r.reason.message + ')' : '');
         })
       );
 
       var overview = results[0].status === 'fulfilled' ? results[0].value : null;
-      var segments = results[1].status === 'fulfilled' ? results[1].value : null;
-      var heatmap = results[2].status === 'fulfilled' ? results[2].value : null;
-      var health = results[3].status === 'fulfilled' ? results[3].value : null;
+      var heatmap = results[1].status === 'fulfilled' ? results[1].value : null;
+      var health = results[2].status === 'fulfilled' ? results[2].value : null;
 
       console.log('[EnhancedDashboard] Parsed data:', {
         overview: overview ? 'yes (keys: ' + Object.keys(overview).join(',') + ')' : 'NULL',
-        segments: segments ? 'yes (keys: ' + Object.keys(segments).join(',') + ')' : 'NULL',
         heatmap: heatmap ? 'yes (keys: ' + Object.keys(heatmap).join(',') + ')' : 'NULL',
         health: health ? 'yes (keys: ' + Object.keys(health).join(',') + ')' : 'NULL'
       });
@@ -408,18 +342,8 @@
       // Render non-chart sections immediately
       if (overview) {
         renderStats(overview);
-        // Schedule chart that depends on overview data
         registerLazyChart('popular-genres-bar', function() {
           renderPopularGenres(overview.popular_genres || []);
-        });
-      }
-      if (segments) {
-        registerLazyChart('user-segments-pie', function() {
-          renderUserSegments(segments.activity_segments, segments.rating_segments);
-        });
-        // Rating preferences pie is in the same card
-        registerLazyChart('rating-preferences-pie', function() {
-          renderUserSegments(segments.activity_segments, segments.rating_segments);
         });
       }
       if (heatmap) {
@@ -441,7 +365,7 @@
     }).catch(function(e) {
       console.error('[EnhancedDashboard] Load failed:', e);
       // Show error on chart containers
-      ['activity-heatmap', 'user-segments-pie', 'popular-genres-bar', 'rating-preferences-pie'].forEach(function(id) {
+      ['activity-heatmap', 'popular-genres-bar'].forEach(function(id) {
         setSkelError(document.getElementById(id), '加载失败，请刷新重试');
       });
       if (btn) {
