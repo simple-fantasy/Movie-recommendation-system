@@ -959,21 +959,15 @@ def recommend():
 
     # NCF-only strategy (require trained model)
     if strategy == "ncf":
-        if ncf_engine.is_loading():
-            return jsonify({
-                "error": "NCF模型正在加载中，请稍后再试",
-                "code": "MODEL_LOADING",
-                "retry_after": 5
-            }), 503
-
-        if not ncf_engine.is_ready():
+        # Trigger load if needed, but don't block — will check result below
+        if not ncf_engine.is_ready() and not ncf_engine.is_loading():
             ncf_engine.load()
 
+        # NCF not ready — fall back to ItemCF instead of 503
         if not ncf_engine.is_ready():
-            return jsonify({
-                "error": "NCF模型不可用，请先运行训练脚本: python -m backend.scripts.train_ncf",
-                "code": "MODEL_NOT_AVAILABLE"
-            }), 503
+            ranked, contributions = _itemcf_recall(current_user.id, user_ratings, top_n, rated_movie_ids)
+            result = _format_recommendations(ranked, contributions, user_ratings, "similarity")
+            return _make_rec_response(result, "itemcf_fallback", "ncf_not_available")
 
         # Check if user is in NCF training set
         if current_user.id not in ncf_engine.user2idx:
@@ -999,14 +993,8 @@ def recommend():
 
     # Hybrid strategy: ItemCF recall + NCF rerank
     if strategy == "hybrid":
-        if ncf_engine.is_loading():
-            return jsonify({
-                "error": "NCF模型正在加载中，请稍后再试",
-                "code": "MODEL_LOADING",
-                "retry_after": 5
-            }), 503
-
-        if not ncf_engine.is_ready():
+        # Trigger NCF load if needed (non-blocking — we always proceed with ItemCF)
+        if not ncf_engine.is_ready() and not ncf_engine.is_loading():
             ncf_engine.load()
 
         # Step 1: ItemCF recall
@@ -1025,8 +1013,9 @@ def recommend():
             else:
                 result = _format_recommendations(itemcf_ranked[:top_n], contributions, user_ratings, "similarity")
         else:
+            fallback_reason = "ncf_not_available" if not ncf_engine.is_ready() else "ncf_loading"
             result = _format_recommendations(itemcf_ranked[:top_n], contributions, user_ratings, "similarity")
-            return _make_rec_response(result, "itemcf_fallback", "ncf_not_available")
+            return _make_rec_response(result, "itemcf_fallback", fallback_reason)
 
         return _make_rec_response(result, "hybrid")
 

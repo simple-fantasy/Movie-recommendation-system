@@ -186,31 +186,42 @@ def create_app() -> Flask:
         except Exception as e:
             app.logger.warning(f"Movie stats population failed: {e}")
 
-    # ── NCF 模型异步预加载（支持失败重试）──
-    # 首次请求时触发后台加载，加载失败后每 60 秒自动重试
-    _ncf_last_try = 0.0
+    # ── NCF 模型异步预加载 ──
+    # 在应用启动时立即触发后台加载，不等待首次请求。
+    # before_request 钩子仅负责检测模型文件更新并自动热重载。
+    _ncf_initial_preload_done = False
+
+    def _start_ncf_preload():
+        """在后台线程中触发 NCF 模型预加载。"""
+        import threading
+        def _load():
+            try:
+                from backend.app.ncf_engine import ncf_engine
+                ncf_engine.load()
+            except ImportError:
+                pass  # PyTorch 未安装
+            except Exception as e:
+                app.logger.warning(f"NCF preload failed: {e}")
+        t = threading.Thread(target=_load, daemon=True)
+        t.start()
+
+    # 延迟一帧启动预加载，确保应用完全初始化
+    _start_ncf_preload()
 
     @app.before_request
     def _preload_ncf():
-        nonlocal _ncf_last_try
-        import time as _time
-        now = _time.time()
-
-        # 控制检查频率：最多每 30 秒检查一次
-        if now - _ncf_last_try < 30:
-            return
-        _ncf_last_try = now
-
+        nonlocal _ncf_initial_preload_done
         try:
             from backend.app.ncf_engine import ncf_engine
+            # 首次请求时，如果预加载尚未完成，再触发一次确保不遗漏
+            if not _ncf_initial_preload_done:
+                _ncf_initial_preload_done = True
+                if not ncf_engine.is_ready() and not ncf_engine.is_loading():
+                    ncf_engine.load_async()
+            # 模型已就绪时检测文件更新，支持热重载
             if ncf_engine.is_ready():
-                # 模型已就绪，检测是否有更新版本
                 ncf_engine.maybe_auto_reload()
-            elif not ncf_engine.is_loading() and ncf_engine.should_retry(60):
-                # 之前加载失败，间隔 60 秒后重试
-                app.logger.info("NCF retry: attempting to reload model")
-                ncf_engine.load_async()
         except ImportError:
-            pass  # PyTorch 未安装，静默跳过
+            pass
 
     return app

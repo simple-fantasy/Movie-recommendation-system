@@ -320,6 +320,7 @@
               'cold_start': '您还没有评分记录，评分后即可获得个性化推荐',
               'user_not_in_ncf_training_set': 'NCF 模型暂不适用于您的账户，已自动切换为协同过滤推荐',
               'ncf_not_available': 'NCF 模型暂不可用，已自动切换为协同过滤推荐',
+              'ncf_loading': 'NCF 模型正在加载中，已自动切换为协同过滤推荐',
               'empty_result': '推荐结果不足，已用热门电影补足'
             };
             showToast(messages[this.fallbackReason] || '推荐策略已自动调整', 'info');

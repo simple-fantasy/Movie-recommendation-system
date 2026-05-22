@@ -61,7 +61,8 @@ const MovieCard = {
   props: {
     movie: { type: Object, required: true },
     showRating: { type: Boolean, default: false },
-    showActions: { type: Boolean, default: true }
+    showActions: { type: Boolean, default: true },
+    posterSize: { type: String, default: 'w342' }
   },
   emits: ['click', 'rate', 'collect'],
   components: { StarRating },
@@ -69,6 +70,7 @@ const MovieCard = {
     <div class="movie-card" @click="onCardClick">
       <img v-if="showPoster" :src="posterUrl" :alt="displayTitle"
            loading="lazy" decoding="async"
+           fetchpriority="auto"
            @error="onPosterError">
       <div v-else class="poster-gradient" :style="gradStyle">
         <span class="poster-initial">{{ initial }}</span>
@@ -104,7 +106,7 @@ const MovieCard = {
     },
     posterUrl() {
       const url = this.movie.poster || this.movie.poster_url || null;
-      return optimizePosterUrl(url, 'w342');
+      return optimizePosterUrl(url, this.posterSize);
     },
     showPoster() {
       return !this.posterFailed && hasValidPoster(this.posterUrl);
@@ -149,7 +151,8 @@ const MovieRow = {
     loading: { type: Boolean, default: false },
     icon: { type: String, default: 'ph-film-strip' },
     emptyText: { type: String, default: '暂无电影' },
-    emptySubtext: { type: String, default: '去评分一些电影来获取推荐吧' }
+    emptySubtext: { type: String, default: '去评分一些电影来获取推荐吧' },
+    posterSize: { type: String, default: 'w342' }
   },
   emits: ['movieClick', 'movieRate'],
   components: { MovieCard },
@@ -169,7 +172,7 @@ const MovieRow = {
       </div>
       <div v-else class="scroll-container">
         <movie-card v-for="movie in movies" :key="movie.id"
-                    :movie="movie" show-rating
+                    :movie="movie" :poster-size="posterSize" show-rating
                     @click="$emit('movieClick', $event)"
                     @rate="$emit('movieRate', $event)">
         </movie-card>
