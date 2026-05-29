@@ -1,5 +1,5 @@
 function renderStats(stats) {
-  const ids = ['favorite', 'watchlist', 'seen', 'total'];
+  const ids = ['favorite', 'total'];
   ids.forEach((key) => {
     const el = document.getElementById('stat-' + key);
     if (el) el.textContent = stats[key] != null ? stats[key] : '-';
@@ -111,8 +111,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const filterAll = document.getElementById('filter-all');
   const filterFavorite = document.getElementById('filter-favorite');
-  const filterWatchlist = document.getElementById('filter-watchlist');
-  const filterSeen = document.getElementById('filter-seen');
   const btnRefresh = document.getElementById('btnRefresh');
 
   if (btnRefresh) btnRefresh.onclick = fetchCollections;
@@ -130,6 +128,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (filterAll) filterAll.onclick = () => setFilter('');
   if (filterFavorite) filterFavorite.onclick = () => setFilter('favorite');
-  if (filterWatchlist) filterWatchlist.onclick = () => setFilter('watchlist');
-  if (filterSeen) filterSeen.onclick = () => setFilter('seen');
 });

@@ -1,0 +1,118 @@
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="系统用例图">
+    <mxGraphModel dx="900" dy="700" grid="1" gridSize="10" page="1" pageScale="1" pageWidth="900" pageHeight="650" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="图 3-1  系统用例图" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=14;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="250" y="10" width="400" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: 普通用户 -->
+        <mxCell id="actor-user" value="" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="280" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-user-label" value="普通用户" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="20" y="345" width="70" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Actor: 管理员 -->
+        <mxCell id="actor-admin" value="" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="830" y="280" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="actor-admin-label" value="管理员" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="815" y="345" width="60" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- System Boundary -->
+        <mxCell id="sys-boundary" value="CineMatch 电影推荐系统" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;strokeWidth=1.5;fontSize=11;fontColor=#555555;verticalAlign=top;align=left;spacingLeft=15;spacingTop=5;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="140" y="50" width="620" height="520" as="geometry" />
+        </mxCell>
+
+        <!-- Use Cases: 普通用户 (left side) -->
+        <mxCell id="uc-register" value="注册 / 登录" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="180" y="100" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-search" value="搜索电影" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="180" y="180" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-rate" value="评分电影" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="180" y="260" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-recommend" value="查看推荐" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#333333;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="180" y="340" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-profile" value="查看画像" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="320" y="420" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-collect" value="收藏管理" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="460" y="420" width="110" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Use Cases: 管理员 (right side) -->
+        <mxCell id="uc-manage-movies" value="管理电影" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="610" y="180" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-manage-users" value="管理用户" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="610" y="260" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-review-content" value="审核内容" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="610" y="340" width="110" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="uc-dashboard" value="查看数据统计" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontColor=#333333;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="610" y="420" width="110" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Use Cases: center (shared/feedback) -->
+        <mxCell id="uc-feedback" value="提交推荐反馈" style="ellipse;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="380" y="100" width="120" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Connections: 普通用户 -->
+        <mxCell id="e1" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-register">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-search">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-rate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-recommend">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-profile">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-collect">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-user" target="uc-feedback">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Connections: 管理员 -->
+        <mxCell id="e8" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-admin" target="uc-manage-movies">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-admin" target="uc-manage-users">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-admin" target="uc-review-content">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1.2;" edge="1" parent="1" source="actor-admin" target="uc-dashboard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Source -->
+        <mxCell id="src" value="资料来源：作者自绘" style="text;html=1;strokeColor=none;fillColor=none;align=right;fontSize=8;fontColor=#aaaaaa;" vertex="1" parent="1">
+          <mxGeometry x="750" y="630" width="130" height="12" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

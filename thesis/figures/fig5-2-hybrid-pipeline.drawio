@@ -1,0 +1,180 @@
+<mxfile host="Electron">
+  <diagram name="Hybrid级联推荐架构" id="0">
+    <mxGraphModel dx="2357" dy="1402" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="1050" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="api" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;fontSize=12;fontStyle=1;strokeWidth=2;" value="GET /api/recommendations?strategy=hybrid&amp;n=10&amp;recall_k=100" vertex="1">
+          <mxGeometry height="44" width="580" x="160" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="step0-label" parent="1" style="text;html=1;fontSize=10;fontColor=#999;align=left;fontStyle=2;" value="策略路由" vertex="1">
+          <mxGeometry height="16" width="60" x="40" y="42" as="geometry" />
+        </mxCell>
+        <mxCell id="s-itemcf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="ItemCF&#xa;直接输出" vertex="1">
+          <mxGeometry height="44" width="110" x="30" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="s-ncf" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="NCF&#xa;独立打分" vertex="1">
+          <mxGeometry height="44" width="110" x="170" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="s-hybrid" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;fontSize=12;fontStyle=1;strokeWidth=2.5;" value="Hybrid 级联&#xa;(召回+重排)" vertex="1">
+          <mxGeometry height="44" width="150" x="310" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="s-popular" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="Popular&#xa;热门兜底" vertex="1">
+          <mxGeometry height="44" width="110" x="630" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="e0a" edge="1" parent="1" source="api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.2;exitX=0.15;exitY=1;entryX=0.5;entryY=0;" target="s-itemcf" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e0b" edge="1" parent="1" source="api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.2;exitX=0.35;exitY=1;entryX=0.5;entryY=0;" target="s-ncf" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e0c" edge="1" parent="1" source="api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;exitX=0.55;exitY=1;entryX=0.5;entryY=0;" target="s-hybrid" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e0d" edge="1" parent="1" source="api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.2;exitX=0.85;exitY=1;entryX=0.5;entryY=0;" target="s-popular" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="focus" parent="1" style="text;html=1;fontSize=10;fontColor=#999;align=center;" value="▼ 以下展开 Hybrid 级联流程" vertex="1">
+          <mxGeometry height="16" width="170" x="300" y="165" as="geometry" />
+        </mxCell>
+        <mxCell id="stage1-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#333;strokeWidth=1.5;dashed=1;" value="" vertex="1">
+          <mxGeometry height="230" width="840" x="30" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="stage1-title" parent="1" style="text;html=1;fontSize=12;fontStyle=1;align=left;" value="阶段 1: ItemCF 召回 (recall_k = 100)" vertex="1">
+          <mxGeometry height="20" width="300" x="45" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="e-call" edge="1" parent="1" source="s-hybrid" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="r1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1.5;" value="用户评分历史 (最近 200 条)" vertex="1">
+          <mxGeometry height="42" width="220" x="100" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="movie_similarity 表&#xa;(预计算余弦相似度 TopK=50)" vertex="1">
+          <mxGeometry height="42" width="240" x="500" y="235" as="geometry" />
+        </mxCell>
+        <mxCell id="e-r1" edge="1" parent="1" source="r1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="r3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e-r2" edge="1" parent="1" source="r2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="r3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#333;fontSize=11;strokeWidth=2;" value="IN 批量查询 → 按 movie_id 分组 → score = Σ (similarity × user_rating) → 过滤已评分 → 排序" vertex="1">
+          <mxGeometry height="50" width="640" x="100" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="r4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;fontSize=12;fontStyle=1;strokeWidth=2;" value="候选集 C = {mid₁, mid₂, ..., mid₁₀₀}" vertex="1">
+          <mxGeometry height="36" width="340" x="250" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="e-r3" edge="1" parent="1" source="r3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="r4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="stage2-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#333;strokeWidth=1.5;dashed=1;" value="" vertex="1">
+          <mxGeometry height="200" width="840" x="30" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="stage2-title" parent="1" style="text;html=1;fontSize=12;fontStyle=1;align=left;" value="阶段 2: NCF 重排 (top_n = 10)" vertex="1">
+          <mxGeometry height="20" width="280" x="45" y="455" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1.5;" value="NCF 可用?" vertex="1">
+          <mxGeometry height="55" width="140" x="340" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="e-d1" edge="1" parent="1" source="r4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="d1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#333;fontSize=12;strokeWidth=2;" value="NCFEngine.score(user_id, C)&#xa;批量推理 → 按 logit 降序排列" vertex="1">
+          <mxGeometry height="50" width="320" x="250" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="e-n1" edge="1" parent="1" source="d1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;fontSize=10;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="n1" value="是">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fb1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;dashed=1;" value="降级: ItemCF 直接输出 (截取 Top-10)" vertex="1">
+          <mxGeometry height="40" width="230" x="620" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="e-fb1" edge="1" parent="1" source="d1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;dashed=1;fontSize=10;entryX=0.5;entryY=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryDx=0;entryDy=0;" target="fb1" value="否 (降级)">
+          <mxGeometry relative="1" x="-0.1811" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="735" y="518" />
+            </Array>
+            <mxPoint x="1030" y="430" as="sourcePoint" />
+            <mxPoint x="1159.97" y="513" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="out-box" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#333;strokeWidth=1.5;dashed=1;" value="" vertex="1">
+          <mxGeometry height="160" width="840" x="30" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="out-title" parent="1" style="text;html=1;fontSize=12;fontStyle=1;align=left;" value="响应输出" vertex="1">
+          <mxGeometry height="20" width="80" x="45" y="685" as="geometry" />
+        </mxCell>
+        <mxCell id="o1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="Top-10 推荐列表&#xa;{movie_id, title, poster_url, score, ...}" vertex="1">
+          <mxGeometry height="50" width="260" x="60" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="o2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="because 字段&#xa;贡献 Top-3 种子电影&#xa;{movie_id, title, weight}" vertex="1">
+          <mxGeometry height="50" width="240" x="370" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="o3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=11;strokeWidth=1.5;" value="meta 字段&#xa;{actual_strategy,&#xa;fallback_reason}" vertex="1">
+          <mxGeometry height="50" width="190" x="660" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="e-o1" edge="1" parent="1" source="n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" target="o1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410" y="660" />
+              <mxPoint x="138" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-o2" edge="1" parent="1" source="fb1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="o1" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="735" y="660" />
+              <mxPoint x="735" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="because-note" parent="1" style="text;html=1;fontSize=10;fontColor=#999;align=center;" value="推荐理由沿用 ItemCF 阶段的相似度贡献&#xa;(深度学习排序 + 传统方法解释)" vertex="1">
+          <mxGeometry height="30" width="300" x="310" y="775" as="geometry" />
+        </mxCell>
+        <mxCell id="fb-chain" parent="1" style="text;html=1;fontSize=11;fontColor=#666;align=center;fontStyle=2;" value="Fallback 链:  NCF 不可用 → ItemCF 直接输出 → Popular 热门兜底" vertex="1">
+          <mxGeometry height="20" width="500" x="200" y="870" as="geometry" />
+        </mxCell>
+        <mxCell id="LG" parent="1" style="swimlane;startSize=22;fillColor=#fff;strokeColor=#aaa;fontSize=11;fontStyle=1;strokeWidth=1;" value="图例" vertex="1">
+          <mxGeometry height="42" width="840" x="30" y="905" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" parent="LG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;strokeWidth=2;" value="" vertex="1">
+          <mxGeometry height="18" width="45" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1t" parent="LG" style="text;html=1;fontSize=10;align=left;" value="入口/输出" vertex="1">
+          <mxGeometry height="16" width="60" x="72" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" parent="LG" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="22" width="26" x="158" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2t" parent="LG" style="text;html=1;fontSize=10;align=left;" value="判断" vertex="1">
+          <mxGeometry height="16" width="35" x="192" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" parent="LG" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#333;strokeWidth=1.5;dashed=1;" value="" vertex="1">
+          <mxGeometry height="20" width="45" x="250" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3t" parent="LG" style="text;html=1;fontSize=10;align=left;" value="处理阶段 (虚线框)" vertex="1">
+          <mxGeometry height="16" width="100" x="302" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4" edge="1" parent="LG" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=2;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="430" y="28" as="sourcePoint" />
+            <mxPoint x="480" y="28" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg4t" parent="LG" style="text;html=1;fontSize=10;align=left;" value="主流程 (粗线)" vertex="1">
+          <mxGeometry height="16" width="80" x="488" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5" edge="1" parent="LG" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;dashed=1;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="595" y="28" as="sourcePoint" />
+            <mxPoint x="645" y="28" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg5t" parent="LG" style="text;html=1;fontSize=10;align=left;" value="降级路径 (虚线)" vertex="1">
+          <mxGeometry height="16" width="95" x="652" y="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

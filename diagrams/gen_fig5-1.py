@@ -1,0 +1,107 @@
+"""Generate 图5-1: ItemCF推荐流程图 (垂直流程, morandi theme)"""
+import os
+
+drawio_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+    <diagram name="图5-1 ItemCF推荐流程" id="itemcf-flow">
+        <mxGraphModel dx="0" dy="0" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="620" pageHeight="900" background="none" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+
+                <mxCell id="title" value="图5-1 ItemCF推荐流程" style="text;html=1;fontSize=14;fontColor=#4A4A4A;align=center;verticalAlign=middle;fontStyle=1;" parent="1" vertex="1">
+                    <mxGeometry x="210" y="8" width="200" height="26" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 1: Start -->
+                <mxCell id="n_start" value="&lt;b&gt;用户请求推荐&lt;/b&gt;&lt;br&gt;GET /api/recommendations?strategy=itemcf" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D8E2EA;strokeColor=#92A8BC;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="55" width="280" height="48" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 1→2 -->
+                <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_start" target="n_history" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 2: Get history -->
+                <mxCell id="n_history" value="&lt;b&gt;获取用户评分历史&lt;/b&gt;&lt;br&gt;SELECT * FROM ratings WHERE user_id = ?" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DDE6DB;strokeColor=#9DB599;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="130" width="280" height="48" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 2→3 -->
+                <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_history" target="n_seeds" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 3: Extract seeds -->
+                <mxCell id="n_seeds" value="&lt;b&gt;提取种子电影集合&lt;/b&gt;&lt;br&gt;过滤rating≥4的高分电影作为种子" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DDE6DB;strokeColor=#9DB599;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="205" width="280" height="48" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 3→4 -->
+                <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_seeds" target="n_query" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 4: Query similarities -->
+                <mxCell id="n_query" value="&lt;b&gt;批量查询相似邻居&lt;/b&gt;&lt;br&gt;单次IN查询: SELECT * FROM movie_similarity&lt;br&gt;WHERE movie_id IN (种子列表)  GROUP BY similar_movie_id&lt;br&gt;每组取Top-50 (避免N+1查询问题)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E2D8E6;strokeColor=#B5A3BC;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="110" y="280" width="380" height="72" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 4→5 -->
+                <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_query" target="n_score" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 5: Compute scores -->
+                <mxCell id="n_score" value="&lt;b&gt;计算候选得分&lt;/b&gt;&lt;br&gt;Score(j) = Σ sim(i, j) × R(u, i)&lt;br&gt;(相似度 × 用户原评分 的加权累加)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E2D8E6;strokeColor=#B5A3BC;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="130" y="380" width="340" height="56" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 5→6 -->
+                <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_score" target="n_filter" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 6: Filter -->
+                <mxCell id="n_filter" value="&lt;b&gt;过滤 + 排序 + 截断&lt;/b&gt;&lt;br&gt;排除已评分电影 → 按得分降序 → 取Top-N" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE8E1;strokeColor=#C0B5A8;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="160" y="465" width="280" height="52" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 6→7 -->
+                <mxCell id="a6" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_filter" target="n_reason" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 7: Generate reasons -->
+                <mxCell id="n_reason" value="&lt;b&gt;生成推荐理由&lt;/b&gt;&lt;br&gt;because字段: 贡献最大的Top-3种子电影 + 权重" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE8E1;strokeColor=#C0B5A8;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="140" y="545" width="320" height="48" as="geometry"/>
+                </mxCell>
+
+                <!-- Arrow 7→8 -->
+                <mxCell id="a7" style="edgeStyle=orthogonalEdgeStyle;endArrow=classic;strokeColor=#B5AFA6;strokeWidth=0.8;endSize=5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="n_reason" target="n_output" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+                <!-- Node 8: Output -->
+                <mxCell id="n_output" value="&lt;b&gt;返回推荐列表 (JSON)&lt;/b&gt;&lt;br&gt;[{movie_id, title, score, because: [...]}, ...]" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D8E2EA;strokeColor=#92A8BC;strokeWidth=1.2;arcSize=10;fontSize=11;fontColor=#4A4A4A;" parent="1" vertex="1">
+                    <mxGeometry x="140" y="620" width="320" height="48" as="geometry"/>
+                </mxCell>
+
+                <!-- Annotations -->
+                <mxCell id="ann_seed" value="离线预计算&lt;br&gt;(训练阶段)" style="text;html=1;fontSize=8;fontColor=#7A7A7A;align=center;verticalAlign=middle;dashed=1;strokeColor=#C5BFB8;strokeWidth=0.5;fillColor=#EDEAE6;" parent="1" vertex="1">
+                    <mxGeometry x="410" y="295" width="75" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="arr_ann1" style="edgeStyle=orthogonalEdgeStyle;endArrow=none;strokeColor=#C5BFB8;strokeWidth=0.5;dashed=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="n_query" target="ann_seed" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>'''
+
+path = os.path.join(os.path.dirname(__file__) or '.', 'fig5-1-itemcf-flow.drawio')
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(drawio_xml)
+print(f'Written: {path}')

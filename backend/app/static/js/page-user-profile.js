@@ -1,110 +1,3 @@
-let genresChart = null;
-let yearsChart = null;
-
-function displayGenresChart(genres) {
-  const chartDom = document.getElementById('genres-chart');
-  if (!chartDom) return;
-
-  if (genresChart) {
-    genresChart.dispose();
-    genresChart = null;
-  }
-
-  // 无数据时显示提示，避免渲染空白图表
-  const data = Object.entries(genres || {}).map(([name, value]) => ({ name, value }));
-  if (!data.length) {
-    chartDom.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height:300px;"><span style="font-size:2rem;opacity:0.4;margin-bottom:0.5rem;">📊</span><span>暂无数据，多评几部电影后就能看到偏好分析啦</span></div>';
-    return;
-  }
-
-  genresChart = echarts.init(chartDom);
-
-  const option = {
-    tooltip: {
-      trigger: 'item',
-      formatter: '{b}: {c}'
-    },
-    series: [
-      {
-        name: '类型偏好',
-        type: 'pie',
-        radius: ['40%', '70%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2
-        },
-        label: {
-          show: false,
-          position: 'center'
-        },
-        emphasis: {
-          label: {
-            show: true,
-            fontSize: 20,
-            fontWeight: 'bold'
-          }
-        },
-        data
-      }
-    ]
-  };
-
-  genresChart.setOption(option);
-}
-
-function displayYearsChart(years) {
-  const chartDom = document.getElementById('years-chart');
-  if (!chartDom) return;
-
-  if (yearsChart) {
-    yearsChart.dispose();
-    yearsChart = null;
-  }
-
-  // 无数据时显示提示，避免渲染空白图表
-  const data = Object.entries(years || {}).map(([name, value]) => ({ name, value }));
-  if (!data.length) {
-    chartDom.innerHTML = '<div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style="min-height:300px;"><span style="font-size:2rem;opacity:0.4;margin-bottom:0.5rem;">📅</span><span>暂无数据，多评几部电影后就能看到偏好分析啦</span></div>';
-    return;
-  }
-
-  yearsChart = echarts.init(chartDom);
-
-  const option = {
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: {
-        type: 'shadow'
-      }
-    },
-    xAxis: {
-      type: 'category',
-      data: data.map(d => d.name),
-      axisLabel: {
-        rotate: 45
-      }
-    },
-    yAxis: {
-      type: 'value'
-    },
-    series: [
-      {
-        name: '偏好度',
-        type: 'bar',
-        data: data.map(d => d.value),
-        itemStyle: {
-          color: '#3b82f6',
-          borderRadius: [5, 5, 0, 0]
-        }
-      }
-    ]
-  };
-
-  yearsChart.setOption(option);
-}
-
 function displayList(containerId, items, icon) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -226,8 +119,6 @@ function displayProfile(profile, totalRatings, needsMoreData) {
   if (watchTime) watchTime.textContent = Math.round((profile.total_watch_time || 0) / 60);
   if (diversity) diversity.textContent = profile.genre_diversity?.toFixed(2) || '-';
 
-  displayGenresChart(profile.preferred_genres);
-  displayYearsChart(profile.preferred_years);
   displayList('actors-list', profile.preferred_actors, '👤');
   displayList('directors-list', profile.preferred_directors, '🎥');
   displayUserType(profile.user_type, profile.activity_level);
@@ -260,11 +151,6 @@ async function refreshProfile() {
     if (content) content.style.setProperty('display', 'block', 'important');
   }
 }
-
-window.addEventListener('resize', () => {
-  if (genresChart) genresChart.resize();
-  if (yearsChart) yearsChart.resize();
-});
 
 function initProfile() {
   var refreshButton = document.getElementById('refresh-profile-btn');

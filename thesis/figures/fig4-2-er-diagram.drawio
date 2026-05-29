@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="draw.io" version="26.0.0">
+  <diagram name="数据库ER图">
+    <mxGraphModel dx="1050" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1050" pageHeight="1050">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- 所有表用 swimlane + 纯文本 body              -->
+        <!-- 宽度≥230 确保最长字段不溢出                  -->
+        <!-- 粗边框(2.5pt)=核心实体                       -->
+        <!-- ═══════════════════════════════════════════ -->
+
+        <!-- ── T1: user_profiles ───────────────────── -->
+        <mxCell id="T1" value="user_profiles" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="40" width="230" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="T1t" value="PK,FK user_id → users  |  preferred_genres (JSON)  |  avg_rating_level" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T1">
+          <mxGeometry x="0" y="30" width="230" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ── T2: movie_similarity ────────────────── -->
+        <mxCell id="T2" value="movie_similarity" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="760" y="40" width="235" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="T2t" value="PK id  |  FK movie_id → movies&#xa;FK similar_movie_id → movies&#xa;score (FLOAT)" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T2">
+          <mxGeometry x="0" y="30" width="235" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ── T3: user_behaviors ──────────────────── -->
+        <mxCell id="T3" value="user_behaviors" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="210" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T3t" value="PK id  |  FK user_id → users&#xa;action_type  |  target_type / target_id&#xa;extra_data (JSON)  |  created_at" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T3">
+          <mxGeometry x="0" y="30" width="230" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- ── T4: users [核心] ────────────────────── -->
+        <mxCell id="T4" value="users" style="swimlane;startSize=32;fillColor=#e8e8e8;strokeColor=#333;fontStyle=1;fontSize=13;strokeWidth=2.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="320" y="195" width="230" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="T4t" value="PK id  |  username (UNIQUE)&#xa;password_hash  |  email&#xa;is_admin  |  is_active&#xa;last_login  |  created_at" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T4">
+          <mxGeometry x="0" y="32" width="230" height="68" as="geometry" />
+        </mxCell>
+
+        <!-- ── T5: movies [核心] ───────────────────── -->
+        <mxCell id="T5" value="movies" style="swimlane;startSize=32;fillColor=#e8e8e8;strokeColor=#333;fontStyle=1;fontSize=13;strokeWidth=2.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="195" width="240" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="T5t" value="PK id  |  title  |  year&#xa;genres  |  director  |  actors (JSON)&#xa;poster_url  |  backdrop_url&#xa;FK submitted_by → users  |  avg_rating" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T5">
+          <mxGeometry x="0" y="32" width="240" height="68" as="geometry" />
+        </mxCell>
+
+        <!-- ── T6: ratings [核心关联] ──────────────── -->
+        <mxCell id="T6" value="ratings" style="swimlane;startSize=30;fillColor=#e8e8e8;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=2.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="400" y="430" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T6t" value="PK id  |  FK user_id → users&#xa;FK movie_id → movies&#xa;rating (0.5~5.0)  |  timestamp" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T6">
+          <mxGeometry x="0" y="30" width="230" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- ── T7: recommendation_feedback ─────────── -->
+        <mxCell id="T7" value="recommendation_feedback" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=11;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="690" y="430" width="240" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T7t" value="PK id  |  FK user_id → users&#xa;FK movie_id → movies&#xa;feedback (like/dislike)  |  context" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T7">
+          <mxGeometry x="0" y="30" width="240" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- ── T8: user_collections ────────────────── -->
+        <mxCell id="T8" value="user_collections" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="430" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T8t" value="PK id  |  FK user_id → users&#xa;FK movie_id → movies&#xa;collection_type (favorite/watchlist/watched)" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T8">
+          <mxGeometry x="0" y="30" width="230" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- ── T9: watch_links ─────────────────────── -->
+        <mxCell id="T9" value="watch_links" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="600" width="235" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T9t" value="PK id  |  FK movie_id → movies&#xa;FK user_id → users&#xa;platform  |  url  |  quality  |  status" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T9">
+          <mxGeometry x="0" y="30" width="235" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- ── T10: reviews ────────────────────────── -->
+        <mxCell id="T10" value="reviews" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="500" y="600" width="230" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="T10t" value="PK id  |  FK user_id → users&#xa;FK movie_id → movies&#xa;content (TEXT)  |  status (审核)" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T10">
+          <mxGeometry x="0" y="30" width="230" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- ── T11: review_likes ───────────────────── -->
+        <mxCell id="T11" value="review_likes" style="swimlane;startSize=30;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="760" width="210" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="T11t" value="PK id  |  FK user_id → users&#xa;FK review_id → reviews  |  created_at" style="text;html=1;fontSize=10;align=left;spacingLeft=6;" vertex="1" parent="T11">
+          <mxGeometry x="0" y="30" width="210" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- 关系连线 — 全部走表间走廊, 不穿任何矩形       -->
+        <!-- ═══════════════════════════════════════════ -->
+
+        <!-- T1 → T4  1:1 -->
+        <mxCell id="e1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERmandOne;strokeWidth=1.5;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="T1" target="T4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- T3 → T4  N:1 -->
+        <mxCell id="e2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" edge="1" parent="1" source="T3" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="250" />
+              <mxPoint x="290" y="232" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T8 → T4  N:1 (经左走廊) -->
+        <mxCell id="e3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="T8" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="454" />
+              <mxPoint x="290" y="269" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T8 → T5  N:1 (经底走廊) -->
+        <mxCell id="e4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0;entryY=0.7;entryDx=0;entryDy=0;" edge="1" parent="1" source="T8" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="290" y="486" />
+              <mxPoint x="290" y="530" />
+              <mxPoint x="610" y="530" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T6 → T4  N:1 -->
+        <mxCell id="e5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=2;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T6" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="481" y="390" />
+              <mxPoint x="435" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T6 → T5  N:1 -->
+        <mxCell id="e6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=2;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T6" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="550" y="390" />
+              <mxPoint x="760" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T7 → T4  N:1 -->
+        <mxCell id="e7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T7" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="454" />
+              <mxPoint x="660" y="390" />
+              <mxPoint x="481" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T7 → T5  N:1 -->
+        <mxCell id="e8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0;exitY=0.7;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T7" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="486" />
+              <mxPoint x="660" y="390" />
+              <mxPoint x="808" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T9 → T4  N:1 (经左走廊) -->
+        <mxCell id="e9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T9" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="140" y="640" />
+              <mxPoint x="140" y="390" />
+              <mxPoint x="435" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T9 → T5  N:1 (经底走廊) -->
+        <mxCell id="e10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.3;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T9" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="288" y="570" />
+              <mxPoint x="712" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T10 → T4  N:1 (经左走廊) -->
+        <mxCell id="e11" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T10" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="640" />
+              <mxPoint x="435" y="640" />
+              <mxPoint x="435" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T10 → T5  N:1 -->
+        <mxCell id="e12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.7;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T10" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="615" y="570" />
+              <mxPoint x="808" y="570" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T11 → T4  N:1 (经左走廊,绕到底部) -->
+        <mxCell id="e13" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T11" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="793" />
+              <mxPoint x="140" y="793" />
+              <mxPoint x="140" y="390" />
+              <mxPoint x="435" y="390" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T11 → T10  N:1 -->
+        <mxCell id="e14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="T11" target="T10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- T2 → T5  N:1 (movie_id) -->
+        <mxCell id="e15" value="movie_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;fontSize=8;fontColor=#888;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="T2" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="831" y="140" />
+              <mxPoint x="910" y="140" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T2 → T5  N:1 (similar_movie_id) -->
+        <mxCell id="e16" value="similar_id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;fontSize=8;fontColor=#888;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.15;entryDx=0;entryDy=0;" edge="1" parent="1" source="T2" target="T5">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="925" y="140" />
+              <mxPoint x="910" y="211" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- T5(submitted_by) → T4  可选虚线 -->
+        <mxCell id="e17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERzeroToOne;startArrow=ERzeroToMany;strokeWidth=1.2;dashed=1;dashPattern=4 4;exitX=0;exitY=0.15;exitDx=0;exitDy=0;entryX=1;entryY=0.15;entryDx=0;entryDy=0;" edge="1" parent="1" source="T5" target="T4">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="610" y="211" />
+              <mxPoint x="580" y="211" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e17t" value="submitted_by&#xa;(可选)" style="text;html=1;fontSize=8;fontColor=#888;align=center;" vertex="1" parent="1">
+          <mxGeometry x="580" y="195" width="55" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- ═══════════════════════════════════════════ -->
+        <!-- 图例                                        -->
+        <!-- ═══════════════════════════════════════════ -->
+        <mxCell id="LG" value="图例" style="swimlane;startSize=24;fillColor=#fff;strokeColor=#aaa;fontSize=12;fontStyle=1;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="880" width="980" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l1" value="" style="swimlane;startSize=14;fillColor=#e8e8e8;strokeColor=#333;strokeWidth=2.5;fontSize=6;" vertex="1" parent="LG">
+          <mxGeometry x="20" y="16" width="55" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="l1t" value="粗框=核心实体" style="text;html=1;fontSize=11;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="85" y="18" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERzeroToMany;strokeWidth=1.5;" edge="1" parent="LG">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="220" y="32" as="sourcePoint" />
+            <mxPoint x="300" y="32" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l2t" value="N : 1" style="text;html=1;fontSize=11;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="310" y="18" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERmandOne;startArrow=ERmandOne;strokeWidth=1.5;" edge="1" parent="LG">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="32" as="sourcePoint" />
+            <mxPoint x="470" y="32" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l3t" value="1 : 1" style="text;html=1;fontSize=11;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="480" y="18" width="50" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=ERzeroToOne;startArrow=ERzeroToMany;strokeWidth=1.2;dashed=1;dashPattern=4 4;" edge="1" parent="LG">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="560" y="32" as="sourcePoint" />
+            <mxPoint x="640" y="32" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="l4t" value="可选外键 (虚线)" style="text;html=1;fontSize=11;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="650" y="18" width="110" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="draw.io" version="26.0.0">
+  <diagram name="NCF模型结构图">
+    <mxGraphModel dx="800" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="800" pageHeight="950">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- 输入 -->
+        <mxCell id="iu" value="User ID (0 ~ 170279)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="180" y="750" width="180" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="im" value="Movie ID (0 ~ 71307)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="440" y="750" width="180" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Embedding 层 -->
+        <mxCell id="eu" value="User Embedding&#xa;num_users x 64" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333;fontSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="180" y="630" width="180" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ei" value="Item Embedding&#xa;num_items x 64" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333;fontSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="440" y="630" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a1" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="iu" target="eu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="im" target="ei">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Concat -->
+        <mxCell id="cc" value="Concat (User Emb + Item Emb)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="520" width="340" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.25;entryY=1;" edge="1" parent="1" source="eu" target="cc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.75;entryY=1;" edge="1" parent="1" source="ei" target="cc">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- MLP 三层 -->
+        <mxCell id="fc1" value="Linear (128 to 256)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="420" width="340" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="a5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="cc" target="fc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1" value="ReLU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="360" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="a6" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="fc1" target="r1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fc2" value="Linear (256 to 128)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="270" width="340" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="a7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="r1" target="fc2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r2" value="ReLU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="320" y="210" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="a8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="fc2" target="r2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="fc3" value="Linear (128 to 1)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=13;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="230" y="110" width="340" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="a9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="r2" target="fc3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 输出 -->
+        <mxCell id="out" value="Logit (偏好得分)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;fontSize=14;fontStyle=1;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="280" y="35" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="a10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;endArrow=classic;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="fc3" target="out">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- MLP 虚线框 -->
+        <mxCell id="mlp-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#aaa;strokeWidth=1;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="90" width="480" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="mlp-t" value="MLP 交互网络" style="text;html=1;fontSize=11;fontColor=#aaa;align=left;" vertex="1" parent="1">
+          <mxGeometry x="170" y="92" width="110" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 维度标注 -->
+        <mxCell id="d0" value="[batch, 64]" style="text;html=1;fontSize=9;fontColor=#aaa;align=left;" vertex="1" parent="1">
+          <mxGeometry x="370" y="640" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="d1" value="[batch, 256]" style="text;html=1;fontSize=9;fontColor=#aaa;align=left;" vertex="1" parent="1">
+          <mxGeometry x="575" y="435" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="[batch, 128]" style="text;html=1;fontSize=9;fontColor=#aaa;align=left;" vertex="1" parent="1">
+          <mxGeometry x="575" y="285" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="[batch, 1]" style="text;html=1;fontSize=9;fontColor=#aaa;align=left;" vertex="1" parent="1">
+          <mxGeometry x="575" y="125" width="60" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- 训练配置 -->
+        <mxCell id="cfg" value="训练配置" style="swimlane;startSize=24;fillColor=#fafafa;strokeColor=#333;fontStyle=1;fontSize=12;strokeWidth=1.5;" vertex="1" parent="1">
+          <mxGeometry x="640" y="270" width="140" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="c1" value="Loss: BCEWithLogits" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="30" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="Optimizer: Adam" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="58" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="lr = 1e-3" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="82" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="neg_ratio = 4" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="106" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" value="batch_size = 4096" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="130" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" value="early_stop: patience=3" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="154" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" value="Val metric: NDCG@10" style="text;html=1;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="cfg">
+          <mxGeometry x="0" y="178" width="140" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- 图例 -->
+        <mxCell id="LG" value="图例" style="swimlane;startSize=22;fillColor=#fff;strokeColor=#aaa;fontSize=11;fontStyle=1;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="860" width="750" height="42" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f0f0;strokeColor=#333;strokeWidth=2;" vertex="1" parent="LG">
+          <mxGeometry x="20" y="16" width="45" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg1t" value="Embedding" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="72" y="16" width="70" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;strokeWidth=1.5;" vertex="1" parent="LG">
+          <mxGeometry x="155" y="16" width="45" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg2t" value="Linear" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="207" y="16" width="40" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8e8e8;strokeColor=#333;strokeWidth=2;" vertex="1" parent="LG">
+          <mxGeometry x="265" y="16" width="45" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg3t" value="输出" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="317" y="16" width="35" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#aaa;strokeWidth=1;dashed=1;" vertex="1" parent="LG">
+          <mxGeometry x="380" y="16" width="45" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg4t" value="MLP 范围" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="432" y="16" width="60" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5" value="[batch, N]" style="text;html=1;fontSize=9;fontColor=#aaa;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="520" y="16" width="60" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg5t" value="张量维度" style="text;html=1;fontSize=10;align=left;" vertex="1" parent="LG">
+          <mxGeometry x="570" y="16" width="55" height="16" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="三层时间切分策略">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" background="#ffffff">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="图 6-1  三层时间切分策略示意图" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=14;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="600" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Subtitle: 用户时间轴 -->
+        <mxCell id="subtitle" value="用户 u 的交互序列（按时间戳从左到右排序，以 min_interactions = 16 为例）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=10;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="250" y="50" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Time arrow (left to right) -->
+        <mxCell id="arrow-time" value="" style="endArrow=classic;html=1;strokeColor=#333333;strokeWidth=1.5;endSize=6;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="60" y="95" as="sourcePoint" />
+            <mxPoint x="1120" y="95" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="time-label" value="时间 →" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=9;fontStyle=2;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="86" width="50" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ====== Three colored segments ====== -->
+        <!-- Train segment (blue, positions 1-12) -->
+        <mxCell id="train-bar" value="train（12 条交互）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#333333;align=center;" vertex="1" parent="1">
+          <mxGeometry x="100" y="115" width="720" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- Val segment (yellow, position 13) -->
+        <mxCell id="val-bar" value="val" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#333333;align=center;" vertex="1" parent="1">
+          <mxGeometry x="820" y="115" width="70" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- Test segment (green, positions 14-16) -->
+        <mxCell id="test-bar" value="test（3 条，rating ≥ 4.0）" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1.5;fontSize=11;fontStyle=1;fontColor=#333333;align=center;" vertex="1" parent="1">
+          <mxGeometry x="890" y="115" width="220" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- ====== Position tick marks and labels ====== -->
+        <!-- Tick marks above the bar -->
+        <mxCell id="tick-1" value="" style="endArrow=none;html=1;strokeColor=#999999;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="130" y="110" as="sourcePoint" />
+            <mxPoint x="130" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tick-12" value="" style="endArrow=none;html=1;strokeColor=#999999;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="790" y="110" as="sourcePoint" />
+            <mxPoint x="790" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tick-13" value="" style="endArrow=none;html=1;strokeColor=#999999;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="855" y="110" as="sourcePoint" />
+            <mxPoint x="855" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tick-14" value="" style="endArrow=none;html=1;strokeColor=#999999;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="925" y="110" as="sourcePoint" />
+            <mxPoint x="925" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tick-16" value="" style="endArrow=none;html=1;strokeColor=#999999;strokeWidth=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1080" y="110" as="sourcePoint" />
+            <mxPoint x="1080" y="100" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Position labels (key positions only) -->
+        <mxCell id="pos-1" value="[1]" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=8;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="118" y="95" width="24" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="pos-12" value="[12]" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=8;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="775" y="95" width="30" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="pos-16" value="[16]" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=8;fontColor=#888888;" vertex="1" parent="1">
+          <mxGeometry x="1065" y="95" width="30" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- Key position labels (bold, below bar) -->
+        <mxCell id="key-pos-5" value="位置 -5" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="825" y="160" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="key-pos-3" value="位置 -3" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="910" y="160" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="key-pos-2" value="位置 -2" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="975" y="160" width="60" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="key-pos-1" value="位置 -1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=9;fontColor=#82b366;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="160" width="60" height="14" as="geometry" />
+        </mxCell>
+
+        <!-- ====== Usage descriptions ====== -->
+        <!-- Train usage -->
+        <mxCell id="train-use-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f6ff;strokeColor=#6c8ebf;strokeWidth=1;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="100" y="200" width="720" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="train-use-label" value="用于&#xa;ItemCF 相似度计算 + NCF 梯度更新" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="100" y="205" width="720" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Val usage -->
+        <mxCell id="val-use-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffef5;strokeColor=#d6b656;strokeWidth=1;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="820" y="200" width="70" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="val-use-label" value="仅 NCF&#xa;早停" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="820" y="205" width="70" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Test usage -->
+        <mxCell id="test-use-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fff0;strokeColor=#82b366;strokeWidth=1;dashed=1;dashPattern=4 4;" vertex="1" parent="1">
+          <mxGeometry x="890" y="200" width="220" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="test-use-label" value="最终评估（Precision / Recall / NDCG 等）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=10;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="890" y="205" width="220" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Vertical dotted connectors from bar to usage boxes -->
+        <mxCell id="conn-train" value="" style="endArrow=none;html=1;strokeColor=#6c8ebf;strokeWidth=1;dashed=1;dashPattern=2 3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="460" y="157" as="sourcePoint" />
+            <mxPoint x="460" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="conn-val" value="" style="endArrow=none;html=1;strokeColor=#d6b656;strokeWidth=1;dashed=1;dashPattern=2 3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="855" y="157" as="sourcePoint" />
+            <mxPoint x="855" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="conn-test" value="" style="endArrow=none;html=1;strokeColor=#82b366;strokeWidth=1;dashed=1;dashPattern=2 3;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1000" y="157" as="sourcePoint" />
+            <mxPoint x="1000" y="200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ====== Parameter box ====== -->
+        <mxCell id="param-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;strokeWidth=1;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="100" y="290" width="460" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="param-title" value="关键参数" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="115" y="293" width="80" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="param-body" value="min_interactions &amp;nbsp;= 16&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;（用户最少交互数）&#xa;val_position &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;= -5&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;（验证物品位于倒数第 5 位）&#xa;test_start &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;= -3&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;（测试物品从倒数第 3 位开始）&#xa;test_count &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;= 3&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;（每用户 3 个测试物品）&#xa;like_threshold &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;= 4.0&amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;（测试物品评分 ≥ 4.0）" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=10;fontColor=#333333;fontFamily=Courier New;spacingLeft=5;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="115" y="315" width="430" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Callout box -->
+        <mxCell id="callout-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8f0;strokeColor=#d79b00;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="630" y="290" width="480" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="callout-icon" value="!" style="text;html=1;strokeColor=none;fillColor=#d79b00;align=center;verticalAlign=middle;fontSize=16;fontStyle=1;fontColor=#ffffff;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="645" y="300" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="callout-title" value="零数据泄露保证" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=1;fontColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="678" y="300" width="140" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="callout-body" value="test items（位置 -3 至 -1）对 NCF 训练和早停完全不可见：&#xa;• NCF 训练仅使用 train（位置 1 至 12）进行梯度更新&#xa;• NCF 早停仅使用 val（位置 -5）计算 NDCG@10&#xa;• val（-5）与 test（-3, -2, -1）位于不同位置，零重叠&#xa;• 评估时 ItemCF 相似度矩阵仅从 train 数据重建" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontSize=10;fontColor=#333333;spacingLeft=5;spacingTop=5;" vertex="1" parent="1">
+          <mxGeometry x="645" y="330" width="455" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#cccccc;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="450" width="1010" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-train" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="120" y="458" width="24" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-train-label" value="train (items[0:-5])" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="150" y="458" width="140" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-val" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="310" y="458" width="24" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-val-label" value="val (items[-5])" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="340" y="458" width="100" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-test" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;" vertex="1" parent="1">
+          <mxGeometry x="460" y="458" width="24" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-test-label" value="test (items[-3:])" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=9;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="490" y="458" width="110" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-splitter" value="代码: evaluation/splitter.py  |  配置: evaluation/config.py (EvalProtocolConfig)" style="text;html=1;strokeColor=none;fillColor=none;align=right;fontSize=8;fontColor=#aaaaaa;fontStyle=2;" vertex="1" parent="1">
+          <mxGeometry x="620" y="458" width="480" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Source annotation -->
+        <mxCell id="source-label" value="资料来源：作者自绘" style="text;html=1;strokeColor=none;fillColor=none;align=right;fontSize=8;fontColor=#aaaaaa;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="730" width="150" height="14" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
