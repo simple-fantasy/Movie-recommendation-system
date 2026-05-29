@@ -1,4 +1,4 @@
-"""Generate NCF-GMF architecture diagram for thesis Chapter 5.
+"""Generate NCF-MLP architecture diagram for thesis Chapter 5.
 Data source: ncf_engine.py (NCF class) + ncf_v2_meta.json
 """
 import matplotlib
@@ -84,7 +84,7 @@ bw_concat, bh_concat = 0.9, 1.5  # concat (tall)
 bw_out, bh_out = 0.85, 0.75      # output
 
 # ---- Title ----
-ax.text(8.0, 5.5, "图 5-1  NCF-GMF 模型架构", ha="center", va="center",
+ax.text(8.0, 5.5, "图 5-1  NCF-MLP 模型架构", ha="center", va="center",
         fontsize=13, fontweight="bold", color="black")
 
 # ---- INPUTS ----

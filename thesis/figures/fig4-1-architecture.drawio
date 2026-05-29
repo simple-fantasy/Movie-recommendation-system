@@ -136,7 +136,7 @@
         <mxCell id="O1a" value="ItemCF&#xa;余弦相似度 TopK=50" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1;" vertex="1" parent="1">
           <mxGeometry x="672" y="140" width="140" height="52" as="geometry" />
         </mxCell>
-        <mxCell id="O1b" value="NCF (GMF)&#xa;Embedding(64)+MLP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1;" vertex="1" parent="1">
+        <mxCell id="O1b" value="NCF (MLP)&#xa;Embedding(64)+MLP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#333;fontSize=12;strokeWidth=1;" vertex="1" parent="1">
           <mxGeometry x="672" y="210" width="140" height="52" as="geometry" />
         </mxCell>
 

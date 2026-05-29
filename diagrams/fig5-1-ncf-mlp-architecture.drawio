@@ -1,11 +1,11 @@
 <mxfile host="drawio" version="26.0.0">
-  <diagram name="NCF-GMF Architecture">
+  <diagram name="NCF-MLP Architecture">
     <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="750" background="#ffffff">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <mxCell id="title" value="图 5-1  NCF-GMF 模型架构" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
+        <mxCell id="title" value="图 5-1  NCF-MLP 模型架构" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#000000;" vertex="1" parent="1">
           <mxGeometry x="300" y="15" width="500" height="30" as="geometry" />
         </mxCell>
 

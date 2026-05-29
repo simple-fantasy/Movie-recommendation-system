@@ -108,7 +108,7 @@ drawio_xml = '''<?xml version="1.0" encoding="UTF-8"?>
                 <mxCell id="n_itemcf_t" value="&lt;b&gt;2. ItemCF训练&lt;/b&gt;&lt;br&gt;scikit-learn NearestNeighbors&lt;br&gt;余弦相似度 + TopK截断&lt;br&gt;→ movie_similarity表" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D6E4F9;strokeColor=#5B8DEF;strokeWidth=1.0;arcSize=8;fontSize=11;fontColor=#2D3748;" parent="1" vertex="1">
                     <mxGeometry x="580" y="155" width="280" height="65" as="geometry"/>
                 </mxCell>
-                <mxCell id="n_ncf_t" value="&lt;b&gt;3. NCF训练&lt;/b&gt;&lt;br&gt;PyTorch GMF架构 (Embedding+MLP)&lt;br&gt;BCE Loss + 负采样 + 早停(patience=3)&lt;br&gt;→ ncf.pt + ncf_meta.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D6E4F9;strokeColor=#5B8DEF;strokeWidth=1.0;arcSize=8;fontSize=11;fontColor=#2D3748;" parent="1" vertex="1">
+                <mxCell id="n_ncf_t" value="&lt;b&gt;3. NCF训练&lt;/b&gt;&lt;br&gt;PyTorch MLP架构 (Embedding+MLP)&lt;br&gt;BCE Loss + 负采样 + 早停(patience=3)&lt;br&gt;→ ncf.pt + ncf_meta.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D6E4F9;strokeColor=#5B8DEF;strokeWidth=1.0;arcSize=8;fontSize=11;fontColor=#2D3748;" parent="1" vertex="1">
                     <mxGeometry x="580" y="245" width="280" height="68" as="geometry"/>
                 </mxCell>
                 <mxCell id="n_eval_t" value="&lt;b&gt;4. 离线评估&lt;/b&gt;&lt;br&gt;5项指标: P@K R@K MAP@K NDCG@K MRR@K&lt;br&gt;Coverage + Popularity Bias&lt;br&gt;消融实验 → evaluation_results.json" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D6E4F9;strokeColor=#5B8DEF;strokeWidth=1.0;arcSize=8;fontSize=11;fontColor=#2D3748;" parent="1" vertex="1">

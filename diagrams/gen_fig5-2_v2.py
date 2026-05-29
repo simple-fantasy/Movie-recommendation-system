@@ -1,6 +1,6 @@
 """
 图5-2: NCF模型结构图 v2
-GMF架构 — 圆角矩形层 + 维度标注 + 自上而下数据流
+MLP架构 — 圆角矩形层 + 维度标注 + 自上而下数据流
 """
 import os
 
@@ -13,7 +13,7 @@ XML = r'''<?xml version="1.0" encoding="UTF-8"?>
       <root>
         <mxCell id="0"/><mxCell id="1" parent="0"/>
 
-        <mxCell id="t" value="图5-2 NCF模型结构 (GMF Architecture)" style="text;html=1;fontSize=14;fontColor=#1A1A1A;align=center;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="t" value="图5-2 NCF模型结构 (MLP Architecture)" style="text;html=1;fontSize=14;fontColor=#1A1A1A;align=center;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="170" y="6" width="340" height="24" as="geometry"/></mxCell>
 
         <!-- ====== INPUT LAYER ====== -->

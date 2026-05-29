@@ -9,7 +9,7 @@ drawio_xml = '''<?xml version="1.0" encoding="UTF-8"?>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
 
-                <mxCell id="title" value="图5-2 NCF模型结构 (GMF架构)" style="text;html=1;fontSize=14;fontColor=#2D3748;align=center;verticalAlign=middle;fontStyle=1;" parent="1" vertex="1">
+                <mxCell id="title" value="图5-2 NCF模型结构 (MLP架构)" style="text;html=1;fontSize=14;fontColor=#2D3748;align=center;verticalAlign=middle;fontStyle=1;" parent="1" vertex="1">
                     <mxGeometry x="200" y="8" width="300" height="26" as="geometry"/>
                 </mxCell>
 

@@ -106,7 +106,7 @@ layer_box(ax, 0.3, 7.7, 19.4, 2.9, "离线训练层  Offline Training", C_TRAIN,
 
 train_scripts = [
     ("train_itemcf.py", "scikit-learn\nNearestNeighbors\ncosine similarity", 0.6),
-    ("train_ncf_v2.py", "PyTorch GMF\nBCE Loss / neg4\n三层切分 / 早停", 4.0),
+    ("train_ncf_v2.py", "PyTorch MLP\nBCE Loss / neg4\n三层切分 / 早停", 4.0),
     ("train_lightgcn.py", "PyTorch LightGCN\nBPR Loss / 3层GCN\nepoch级传播优化", 7.4),
     ("train_ease.py", "NumPy EASE\n闭式最小二乘\nλ=500 / 矩阵求逆", 10.8),
 ]
