@@ -48,7 +48,7 @@ class NCF(nn.Module if TORCH_AVAILABLE else object):
     """
     Neural Collaborative Filtering 模型。
 
-    GMF 架构: 用户/物品各一个 Embedding 向量 →
+    MLP 架构: 用户/物品各一个 Embedding 向量 →
     拼接后通过 3 层 MLP → sigmoid 输出 0-1 的匹配概率。
 
     参数:
