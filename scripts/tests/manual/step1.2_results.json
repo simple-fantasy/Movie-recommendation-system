@@ -1,0 +1,735 @@
+{
+  "results": [
+    {
+      "name": "T1.1 匿名用户-默认推荐",
+      "method": "GET",
+      "path": "/api/recommendations",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "anonymous_user"
+      }
+    },
+    {
+      "name": "T1.2 匿名用户-显式popular",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=popular",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "anonymous_user"
+      }
+    },
+    {
+      "name": "T1.3 匿名用户-显式itemcf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "anonymous_user"
+      }
+    },
+    {
+      "name": "T1.4 匿名用户-显式ncf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=ncf",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "anonymous_user"
+      }
+    },
+    {
+      "name": "T1.5 匿名用户-显式hybrid",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=hybrid",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "anonymous_user"
+      }
+    },
+    {
+      "name": "T2.1 admin-默认策略",
+      "method": "GET",
+      "path": "/api/recommendations",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "16.7402 ~ 18.2953",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.2 admin-popular",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=popular&n=12",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 12,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/12",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.3 admin-itemcf-n=10",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=10",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "16.7402 ~ 18.2953",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.4 admin-itemcf-n=50",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=50",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 50,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "6.6343 ~ 18.2953",
+      "has_because": "50/50",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.5 admin-itemcf-n=1",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=1",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 1,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "18.2953 ~ 18.2953",
+      "has_because": "1/1",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.6 admin-ncf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=ncf&n=10",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "16.7402 ~ 18.2953",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf_fallback",
+        "fallback_reason": "user_not_in_ncf_training_set"
+      }
+    },
+    {
+      "name": "T2.7 admin-hybrid",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=hybrid&n=10",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "16.7402 ~ 18.2953",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf_fallback",
+        "fallback_reason": "ncf_loading"
+      }
+    },
+    {
+      "name": "T2.8 admin-hybrid-recall_k=500",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=hybrid&recall_k=500&n=10",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "16.7402 ~ 18.2953",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf_fallback",
+        "fallback_reason": "ncf_loading"
+      }
+    },
+    {
+      "name": "T2.9 admin-itemcf-n=100截断",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=100",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 50,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "6.6343 ~ 18.2953",
+      "has_because": "50/50",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.10 admin-itemcf-n=0",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=0",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 12,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/12",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "empty_result"
+      }
+    },
+    {
+      "name": "T2.11 admin-itemcf-n=负数",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=-5",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 95,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "2.0118 ~ 18.2953",
+      "has_because": "95/95",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T2.12 admin-itemcf-n=非数字",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf&n=abc",
+      "expected_status": 200,
+      "actual_status": 500,
+      "passed": false,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "code",
+        "error",
+        "method",
+        "path",
+        "timestamp"
+      ],
+      "error": "服务器发生意外错误",
+      "error_detail": "{'code': 'UNEXPECTED_ERROR', 'error': '服务器发生意外错误', 'method': 'GET', 'path': '/api/recommendations', 'timestamp': '2026-06-06T08:57:35.855039+00:00'}"
+    },
+    {
+      "name": "T2.13 admin-未知策略",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=invalid_strategy",
+      "expected_status": 400,
+      "actual_status": 400,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "error"
+      ],
+      "error": "Unknown strategy: invalid_strategy. Use 'popular', 'itemcf', 'ncf', or 'hybrid'."
+    },
+    {
+      "name": "T3.1 demo-默认",
+      "method": "GET",
+      "path": "/api/recommendations",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "demo",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "32.5222 ~ 47.4196",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T3.2 demo-popular",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=popular",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "demo",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T3.3 demo-itemcf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "demo",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "similarity"
+      ],
+      "score_range": "32.5222 ~ 47.4196",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "itemcf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T3.4 demo-ncf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=ncf",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "demo",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "ncf"
+      ],
+      "score_range": "0.9991 ~ 0.9999",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "ncf",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T3.5 demo-hybrid",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=hybrid",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "demo",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "hybrid"
+      ],
+      "score_range": "0.9988 ~ 0.9999",
+      "has_because": "10/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "hybrid",
+        "fallback_reason": null
+      }
+    },
+    {
+      "name": "T4.1 冷启动-默认",
+      "method": "GET",
+      "path": "/api/recommendations",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "test_cold_59b3a287",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "cold_start"
+      }
+    },
+    {
+      "name": "T4.2 冷启动-popular",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=popular",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "test_cold_59b3a287",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "cold_start"
+      }
+    },
+    {
+      "name": "T4.3 冷启动-itemcf",
+      "method": "GET",
+      "path": "/api/recommendations?strategy=itemcf",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "test_cold_59b3a287",
+      "has_json": true,
+      "keys": [
+        "meta",
+        "recommendations"
+      ],
+      "rec_count": 10,
+      "missing_fields": null,
+      "reasons": [
+        "popular"
+      ],
+      "score_range": "all None",
+      "has_because": "0/10",
+      "has_duplicates": false,
+      "meta": {
+        "actual_strategy": "popular_fallback",
+        "fallback_reason": "cold_start"
+      }
+    },
+    {
+      "name": "T5.1 why端点-有效movie_id",
+      "method": "GET",
+      "path": "/api/recommendations/why/1",
+      "expected_status": 200,
+      "actual_status": 200,
+      "passed": true,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "because",
+        "movie_id",
+        "title"
+      ]
+    },
+    {
+      "name": "T5.2 why端点-无效movie_id",
+      "method": "GET",
+      "path": "/api/recommendations/why/999999",
+      "expected_status": 200,
+      "actual_status": 404,
+      "passed": false,
+      "login_as": "admin",
+      "has_json": true,
+      "keys": [
+        "error"
+      ],
+      "error": "movie not found",
+      "error_detail": "{'error': 'movie not found'}"
+    },
+    {
+      "name": "T5.3 why端点-未登录",
+      "method": "GET",
+      "path": "/api/recommendations/why/1",
+      "expected_status": 302,
+      "actual_status": 401,
+      "passed": false,
+      "login_as": null,
+      "has_json": true,
+      "keys": [
+        "error"
+      ],
+      "error": "请先登录",
+      "error_detail": "{'error': '请先登录'}"
+    }
+  ],
+  "errors": [
+    {
+      "name": "T2.12 admin-itemcf-n=非数字",
+      "expected": 200,
+      "actual": 500,
+      "path": "/api/recommendations?strategy=itemcf&n=abc",
+      "body_preview": "{'code': 'UNEXPECTED_ERROR', 'error': '服务器发生意外错误', 'method': 'GET', 'path': '/api/recommendations', 'timestamp': '2026-06-06T08:57:35.855039+00:00'}"
+    },
+    {
+      "name": "T5.2 why端点-无效movie_id",
+      "expected": 200,
+      "actual": 404,
+      "path": "/api/recommendations/why/999999",
+      "body_preview": "{'error': 'movie not found'}"
+    },
+    {
+      "name": "T5.3 why端点-未登录",
+      "expected": 302,
+      "actual": 401,
+      "path": "/api/recommendations/why/1",
+      "body_preview": "{'error': '请先登录'}"
+    }
+  ],
+  "summary": {
+    "total": 29,
+    "passed": 26,
+    "failed": 3,
+    "pass_rate": "89.7%"
+  }
+}

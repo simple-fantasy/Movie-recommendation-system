@@ -1,0 +1,141 @@
+{
+  "results": [
+    {
+      "name": "T1.1 get_status返回dict",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T1.2 包含loaded字段",
+      "passed": false,
+      "detail": ""
+    },
+    {
+      "name": "T1.3 包含loading字段",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T1.4 包含error字段",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T1.5 包含ready字段",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T2.1 NCF已加载",
+      "passed": false,
+      "detail": ""
+    },
+    {
+      "name": "T2.2-T2.11 跳过",
+      "passed": false,
+      "detail": "NCF未加载，跳过数据审计"
+    },
+    {
+      "name": "T3.x 跳过",
+      "passed": false,
+      "detail": "NCF未加载"
+    },
+    {
+      "name": "T4.1 load成功",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T4.2 load<5s",
+      "passed": true,
+      "detail": "实际0.4s"
+    },
+    {
+      "name": "T4.3 load<10s",
+      "passed": true,
+      "detail": "实际0.4s"
+    },
+    {
+      "name": "T4.4 load后is_ready",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T5.1 并发score无异常",
+      "passed": true,
+      "detail": "全部成功"
+    },
+    {
+      "name": "T5.2 score+reload竞态无crash",
+      "passed": true,
+      "detail": "score异常:0, reload异常:0"
+    },
+    {
+      "name": "T5.3 reload后is_ready",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T5.4 5次reload全部成功",
+      "passed": true,
+      "detail": "平均0.32s"
+    },
+    {
+      "name": "T5.5 reload时间稳定",
+      "passed": true,
+      "detail": "max-min=0.08s"
+    },
+    {
+      "name": "T6.1 admin score返回空",
+      "passed": true,
+      "detail": "正确返回空"
+    },
+    {
+      "name": "T6.2 空候选返回空",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T6.3 无效item_id被跳过",
+      "passed": true,
+      "detail": "返回0个结果（预期0）"
+    },
+    {
+      "name": "T6.4 get_status字段完整",
+      "passed": false,
+      "detail": "缺少: ['loaded', 'last_error', 'last_attempt_time', 'model_mtime', 'num_users', 'num_items']"
+    },
+    {
+      "name": "T6.5 Ready状态should_retry=False",
+      "passed": true,
+      "detail": "should_retry=False"
+    }
+  ],
+  "errors": [
+    {
+      "name": "T1.2 包含loaded字段",
+      "detail": ""
+    },
+    {
+      "name": "T2.1 NCF已加载",
+      "detail": ""
+    },
+    {
+      "name": "T2.2-T2.11 跳过",
+      "detail": "NCF未加载，跳过数据审计"
+    },
+    {
+      "name": "T3.x 跳过",
+      "detail": "NCF未加载"
+    },
+    {
+      "name": "T6.4 get_status字段完整",
+      "detail": "缺少: ['loaded', 'last_error', 'last_attempt_time', 'model_mtime', 'num_users', 'num_items']"
+    }
+  ],
+  "summary": {
+    "total": 22,
+    "passed": 17,
+    "failed": 5
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "results": [
+    {
+      "name": "A1 未登录→popular_fallback",
+      "passed": true,
+      "detail": "status=200, strategy=popular_fallback"
+    },
+    {
+      "name": "A2 why端点未登录→401 JSON",
+      "passed": true,
+      "detail": "status=401, is_json=True"
+    },
+    {
+      "name": "A3 why端点未登录→非HTML",
+      "passed": true,
+      "detail": "返回JSON错误"
+    },
+    {
+      "name": "A4 伪造session→不泄露数据",
+      "passed": false,
+      "detail": "status=200, strategy=itemcf"
+    },
+    {
+      "name": "A5 推荐响应不含敏感字段",
+      "passed": true,
+      "detail": "检查了10条推荐的['password', 'password_hash', 'email', 'security_question', 'security_answer']"
+    },
+    {
+      "name": "A6 because不含用户信息",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "B1 SQL注入strategy",
+      "passed": true,
+      "detail": "status=400, sql_error=False"
+    },
+    {
+      "name": "B2 SQL注入strategy(union)",
+      "passed": true,
+      "detail": "status=400, sql_error=False"
+    },
+    {
+      "name": "B3 SQL注入n",
+      "passed": true,
+      "detail": "status=500, sql_error=False"
+    },
+    {
+      "name": "B4 SQL注入recall_k",
+      "passed": true,
+      "detail": "status=500, sql_error=False"
+    },
+    {
+      "name": "B5 XSS-推荐响应title安全",
+      "passed": true,
+      "detail": "所有title均不含HTML标签"
+    },
+    {
+      "name": "B6 路径遍历",
+      "passed": false,
+      "detail": "status=400"
+    },
+    {
+      "name": "B7 超大n值截断",
+      "passed": true,
+      "detail": "recs=50 (应≤50)"
+    },
+    {
+      "name": "B8 负数recall_k",
+      "passed": true,
+      "detail": "recs=12"
+    },
+    {
+      "name": "C1 20次快速请求",
+      "passed": true,
+      "detail": "成功20/20, 耗时0.57s, 限流=False"
+    },
+    {
+      "name": "C2 5并发请求稳定性",
+      "passed": true,
+      "detail": "5线程全部成功"
+    },
+    {
+      "name": "D-all 所有策略无敏感字段泄露",
+      "passed": true,
+      "detail": "检查了4种策略×7个敏感字段"
+    }
+  ],
+  "errors": [
+    {
+      "name": "A4 伪造session→不泄露数据",
+      "detail": "status=200, strategy=itemcf"
+    },
+    {
+      "name": "B6 路径遍历",
+      "detail": "status=400"
+    }
+  ],
+  "vulnerabilities": [
+    {
+      "name": "A4 伪造session→不泄露数据",
+      "vulnerability": "会话伪造",
+      "detail": "status=200, strategy=itemcf"
+    },
+    {
+      "name": "B6 路径遍历",
+      "vulnerability": "路径遍历",
+      "detail": "status=400"
+    }
+  ],
+  "summary": {
+    "total": 17,
+    "passed": 15,
+    "failed": 2
+  }
+}

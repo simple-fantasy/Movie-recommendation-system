@@ -1,0 +1,120 @@
+{
+  "results": [
+    {
+      "name": "T1.1 注册测试用户",
+      "passed": true,
+      "detail": "user=ratetest_73bfcc"
+    },
+    {
+      "name": "T1.2 登录",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T1.3 冷启动→popular_fallback",
+      "passed": true,
+      "detail": "fallback_reason=cold_start"
+    },
+    {
+      "name": "T1.4 fallback有推荐",
+      "passed": true,
+      "detail": "recs=10"
+    },
+    {
+      "name": "T2.1 评分电影1221",
+      "passed": true,
+      "detail": "rating=4.0"
+    },
+    {
+      "name": "T2.2 评分电影904",
+      "passed": true,
+      "detail": "rating=4.5"
+    },
+    {
+      "name": "T2.3 评分电影1193",
+      "passed": true,
+      "detail": "rating=5.0"
+    },
+    {
+      "name": "T2.4 已评分电影不在推荐中",
+      "passed": true,
+      "detail": "无重叠"
+    },
+    {
+      "name": "T2.5 评分后策略切换为itemcf",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T3.1 评分0.5",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T3.2 修改评分为5.0",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "name": "T3.3 修改评分后推荐排序变化",
+      "passed": true,
+      "detail": "排序已变化 (low[0]=858, high[0]=858)"
+    },
+    {
+      "name": "T4.1 评分后可读取",
+      "passed": false,
+      "detail": "响应: {'code': 'METHOD_NOT_ALLOWED', 'error': '请求方法不允许', 'method': 'GET', 'path': '/api/ratings', 'timestamp': '2026-06-06T09:10:08.359841+00:00'}"
+    },
+    {
+      "name": "T4.3 Movie1221统计已更新",
+      "passed": true,
+      "detail": "avg_rating=4.26449, rating_count=43112"
+    },
+    {
+      "name": "T4.4 Rating表中有movie_1221的评分",
+      "passed": true,
+      "detail": "共43112条"
+    },
+    {
+      "name": "T4.4 Rating表中有movie_904的评分",
+      "passed": true,
+      "detail": "共24884条"
+    },
+    {
+      "name": "T4.4 Rating表中有movie_1193的评分",
+      "passed": true,
+      "detail": "共44593条"
+    },
+    {
+      "name": "T5.1 popular缓存命中",
+      "passed": true,
+      "detail": "热查询耗时0.0015s"
+    },
+    {
+      "name": "T5.2 缓存数据一致",
+      "passed": true,
+      "detail": "一致"
+    },
+    {
+      "name": "T5.3 推荐API无缓存(t1)",
+      "passed": true,
+      "detail": "第二次耗时0.0078s — 推荐API不应走缓存"
+    },
+    {
+      "name": "T5.4 推荐结果基本一致",
+      "passed": true,
+      "detail": "两次结果相同（无中间评分变化时应稳定）"
+    }
+  ],
+  "errors": [
+    {
+      "name": "T4.1 评分后可读取",
+      "detail": "响应: {'code': 'METHOD_NOT_ALLOWED', 'error': '请求方法不允许', 'method': 'GET', 'path': '/api/ratings', 'timestamp': '2026-06-06T09:10:08.359841+00:00'}"
+    }
+  ],
+  "summary": {
+    "total": 21,
+    "passed": 20,
+    "failed": 1
+  }
+}
